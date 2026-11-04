@@ -1,0 +1,1159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pole–Zero Explorer</title>
+<meta name="description" content="Interactive pole–zero, step-response and Bode explorer for ELE204 Control Systems.">
+<style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>
+/* Layout: bench instrument — a control rail on the left, two linked plots (s-plane | time response) on the right, read-outs beneath */
+:root{
+  --bg:#edf0f3; --panel:#fbfcfd; --ink:#17212c; --muted:#596676; --line:#d3dae2; --grid:#e4e9ef;
+  --pz:#1f4e9c; --on-accent:#ffffff; --cl:#c43a52; --ref:#9aa2ac; --ol:#c27606;
+  --ok:#1d8556; --asym:#7a4fb5; --warn:#a86d12; --bad:#c43a52; --rhp:rgba(196,58,82,.06); --band:rgba(29,133,86,.11);
+  --display:"Avenir Next Condensed","Roboto Condensed","Arial Narrow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"Cascadia Mono","Segoe UI Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1319; --panel:#151c24; --ink:#e2e8ef; --muted:#8e9aaa; --line:#28323e; --grid:#1e2731;
+  --pz:#7da8ff; --on-accent:#0e1319; --cl:#ff6f86; --ref:#7b8591; --ol:#f0a53c;
+  --ok:#4cc38a; --asym:#b99af0; --warn:#e3b04b; --bad:#ff6f86; --rhp:rgba(255,111,134,.075); --band:rgba(76,195,138,.13);
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0e1319; --panel:#151c24; --ink:#e2e8ef; --muted:#8e9aaa; --line:#28323e; --grid:#1e2731;
+  --pz:#7da8ff; --on-accent:#0e1319; --cl:#ff6f86; --ref:#7b8591; --ol:#f0a53c;
+  --ok:#4cc38a; --asym:#b99af0; --warn:#e3b04b; --bad:#ff6f86; --rhp:rgba(255,111,134,.075); --band:rgba(76,195,138,.13);
+  color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+.app{max-width:1440px;margin:0 auto;padding-block:20px 32px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:16px}
+
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 32px}
+h1{font:600 1.6rem/1.1 var(--display);letter-spacing:.01em;margin:0;text-wrap:balance}
+.sub{margin:4px 0 0;color:var(--muted);font-size:.9rem;max-width:62ch}
+.tf{display:flex;flex-wrap:wrap;gap:10px 28px;align-items:center;min-width:0;overflow-x:auto}
+.eq{display:flex;align-items:center;gap:8px;font-size:1rem}
+.eq .lhs{font-style:italic;white-space:nowrap}
+.frac{display:inline-flex;flex-direction:column;align-items:center;font:500 .92rem/1.45 var(--mono)}
+.frac>span{padding:0 6px;white-space:nowrap}
+.frac>span:first-child{border-bottom:1.5px solid currentColor}
+.frac sup{font-size:.7em;line-height:0}
+.eq .note{color:var(--muted);font:500 .85rem var(--mono);white-space:nowrap}
+
+.layout{display:grid;grid-template-columns:292px minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:920px){.layout{grid-template-columns:minmax(0,1fr)}}
+
+.rail{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px 16px 8px;display:flex;flex-direction:column;min-width:0}
+.group{display:flex;flex-direction:column;gap:7px;padding-block:13px;border-bottom:1px solid var(--line)}
+.group:last-child{border-bottom:0}
+h2{font:600 .72rem/1 var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 2px}
+label.f{font-size:.8rem;color:var(--muted)}
+input[type=text],input[type=number],select{font:500 .92rem var(--mono);color:var(--ink);background:var(--bg);
+  border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-width:0}
+select{font-family:var(--body);font-size:.88rem}
+input.invalid{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad)}
+:focus-visible{outline:2px solid var(--pz);outline-offset:2px}
+button{font:500 .85rem var(--body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--pz);border-color:var(--pz);color:var(--on-accent)}
+button.small{padding:4px 10px;font-size:.78rem}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>button{flex:1}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--bg)}
+.seg.four{grid-template-columns:repeat(4,1fr)}
+.seg button{border:0;border-radius:0;background:transparent;padding:7px 4px;font-size:.8rem;line-height:1.25}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-checked="true"]{background:var(--pz);color:var(--on-accent)}
+.hint{font-size:.78rem;color:var(--muted);margin:0;line-height:1.45}
+.hint kbd{font:500 .74rem var(--mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--bg);color:var(--ink)}
+.check{display:flex;align-items:center;gap:9px;font-size:.88rem;cursor:pointer}
+.check sub{line-height:0}
+.check input{accent-color:var(--pz);width:15px;height:15px;margin:0;flex:none}
+.krow{display:grid;grid-template-columns:minmax(0,1fr) 88px;gap:10px;align-items:center}
+input[type=range]{accent-color:var(--pz);width:100%;margin:0}
+
+.work{display:flex;flex-direction:column;gap:12px;min-width:0}
+.plots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:1200px){.plots{grid-template-columns:minmax(0,1fr)}}
+.plot{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.plot .cap{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.plot .cap b{font:600 1rem var(--display);letter-spacing:.01em}
+.plot .cap .unit{color:var(--muted);font:400 .8rem var(--mono);margin-left:6px}
+.cw{position:relative;height:clamp(280px,31vw,470px)}
+@media (max-width:1200px){.cw{height:clamp(280px,52vw,460px)}}
+.cw.bode{height:clamp(400px,38vw,540px)}
+@media (max-width:1200px){.cw.bode{height:clamp(420px,95vw,560px)}}
+.bctl{display:flex;gap:8px 16px;align-items:center;flex-wrap:wrap}
+.bctl .seg{min-width:0}
+canvas{display:block;width:100%;height:100%;border-radius:6px}
+#pz{touch-action:none}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.78rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.legend svg{width:18px;height:12px;flex:none;overflow:visible}
+
+.status{margin:0;font-size:.86rem;color:var(--muted);min-height:1.4em}
+.status.bad{color:var(--bad)}
+.status.good{color:var(--ink)}
+
+.readouts{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:12px;align-items:start}
+@media (max-width:680px){.readouts{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.card h3{font:600 .72rem/1 var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pill{display:inline-block;font:600 .7rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;padding:4px 8px;border-radius:999px}
+.pill.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 15%,transparent)}
+.pill.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 16%,transparent)}
+.pill.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 15%,transparent)}
+dl.m{display:grid;grid-template-columns:auto 1fr;gap:5px 16px;margin:0;font-size:.86rem}
+dl.m dt{color:var(--muted)}
+dl.m dd{margin:0;font:500 .86rem var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.none{color:var(--muted);font-size:.86rem;margin:0}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.84rem;font-variant-numeric:tabular-nums}
+th,td{padding:4px 10px;text-align:right;white-space:nowrap}
+thead th{font:600 .8rem var(--display);letter-spacing:.02em;color:var(--muted);border-bottom:1px solid var(--line)}
+tbody th{text-align:left;font:600 .8rem var(--body);color:var(--muted);padding-top:9px}
+td{font-family:var(--mono)}
+td:first-child{text-align:left}
+td.rhp{color:var(--bad)}
+.foot{font-size:.78rem;color:var(--muted);margin:0;max-width:110ch}
+.card h3.sub2{margin-top:16px}
+.card h3 .nt{text-transform:none;letter-spacing:.02em}
+.card .hint{margin-top:8px}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div>
+      <h1>Pole–Zero Explorer</h1>
+      <p class="sub">Enter a transfer function, then drag its poles and zeros in the s-plane and watch the step response and Bode diagram change.</p>
+    </div>
+    <div class="tf" id="tf" aria-live="polite"></div>
+  </header>
+
+  <main class="layout">
+    <aside class="rail" aria-label="Controls">
+      <section class="group">
+        <h2>Transfer function</h2>
+        <label class="f" for="num">Numerator N(s)</label>
+        <input type="text" id="num" value="4" spellcheck="false" autocomplete="off">
+        <label class="f" for="den">Denominator D(s)</label>
+        <input type="text" id="den" value="s^2 + 2s" spellcheck="false" autocomplete="off">
+        <div class="row"><button id="apply" class="primary">Apply</button><button id="reset">Reset</button></div>
+        <p class="hint">Write <kbd>s^2 + 2s + 4</kbd>, <kbd>(s+1)(s+3)</kbd>, <kbd>10(s+0.5)^2</kbd> or coefficients <kbd>1 2 4</kbd>. Press Enter to apply.</p>
+        <label class="f" for="preset">Example systems</label>
+        <select id="preset"></select>
+      </section>
+
+      <section class="group">
+        <h2>The entered function is</h2>
+        <div class="seg" role="radiogroup" aria-label="Interpretation of the entered transfer function" id="mode">
+          <button role="radio" data-v="open" aria-checked="true">Open loop G(s)</button>
+          <button role="radio" data-v="closed" aria-checked="false">Closed loop T(s)</button>
+        </div>
+        <p class="hint" id="modeHint"></p>
+      </section>
+
+      <section class="group" id="gainGroup">
+        <h2>Loop gain K</h2>
+        <div class="krow">
+          <input type="range" id="kslider" min="-3" max="3" step="0.005" value="0" aria-label="Loop gain K, logarithmic slider">
+          <input type="number" id="knum" min="0" step="any" value="1" aria-label="Loop gain K">
+        </div>
+        <p class="hint">Slider is logarithmic, 0.001 to 1000.</p>
+      </section>
+
+      <section class="group">
+        <h2>Edit tool</h2>
+        <div class="seg four" role="radiogroup" aria-label="Edit tool" id="tool">
+          <button role="radio" data-v="move" aria-checked="true">Move</button>
+          <button role="radio" data-v="pole" aria-checked="false">+ Pole</button>
+          <button role="radio" data-v="zero" aria-checked="false">+ Zero</button>
+          <button role="radio" data-v="delete" aria-checked="false">Delete</button>
+        </div>
+        <p class="hint">Over the s-plane: <kbd>x</kbd> adds a pole, <kbd>o</kbd> a zero, <kbd>d</kbd> or right-click deletes. Complex pairs move together. Drop a pair on the real axis to split it; drag one of two coincident real roots up or down to make a pair. Scroll to zoom, drag empty space to pan.</p>
+      </section>
+
+      <section class="group">
+        <h2>Display</h2>
+        <label class="check"><input type="checkbox" id="cGrid" checked><span>ζ and ω<sub>n</sub> grid</span></label>
+        <label class="check"><input type="checkbox" id="cOL"> Open-loop step of K·G(s)</label>
+      </section>
+
+      <section class="group">
+        <h2>Compare</h2>
+        <div class="row"><button id="freeze">Freeze reference</button><button id="clear">Clear</button></div>
+        <label class="check"><input type="checkbox" id="cDC"> Lock DC gain while editing</label>
+        <label class="check"><input type="checkbox" id="cAxes"> Lock step-plot axes</label>
+      </section>
+    </aside>
+
+    <div class="work">
+      <div class="plots">
+        <figure class="plot">
+          <div class="cap"><span><b id="pzTitle">Poles and zeros of G(s)</b><span class="unit">s-plane, rad/s</span></span>
+            <button id="fit" class="small">Fit view</button></div>
+          <div class="cw"><canvas id="pz" tabindex="0" aria-label="s-plane with draggable poles and zeros"></canvas></div>
+          <div class="legend" id="pzLegend"></div>
+        </figure>
+        <figure class="plot">
+          <div class="cap"><span><b id="stTitle">Unit-step response</b><span class="unit">y(t) vs t in s</span></span></div>
+          <div class="cw"><canvas id="st" aria-label="Unit-step response plot"></canvas></div>
+          <div class="legend" id="stLegend"></div>
+        </figure>
+      </div>
+      <figure class="plot">
+        <div class="cap"><span><b id="bdTitle">Bode diagram</b><span class="unit">ω in rad/s</span></span>
+          <div class="bctl">
+            <div class="seg" role="radiogroup" aria-label="Transfer function shown in the Bode diagram" id="bodeOf">
+              <button role="radio" data-v="loop" aria-checked="true">Loop K·G(s)</button>
+              <button role="radio" data-v="cl" aria-checked="false">Closed loop T(s)</button>
+            </div>
+            <label class="check"><input type="checkbox" id="cAsym"><span>Asymptotes</span></label>
+          </div>
+        </div>
+        <div class="cw bode"><canvas id="bd" aria-label="Bode magnitude and phase plots"></canvas></div>
+        <div class="legend" id="bdLegend"></div>
+      </figure>
+      <p class="status" id="status" role="status"></p>
+      <div class="readouts">
+        <section class="card" id="metrics"></section>
+        <section class="card"><h3>Poles and zeros</h3><div class="tw"><table id="roots"></table></div></section>
+      </div>
+      <p class="foot">Open-loop mode closes the loop with unity negative feedback, T(s) = K·G(s) / (1 + K·G(s)). Step responses are computed exactly with a zero-order-hold discretisation of the state-space model. Bode asymptotes are the textbook straight-line approximations: the magnitude slope changes by ±20 dB/decade at each real corner frequency and ±40 dB/decade at each complex pair (at ω<sub>n</sub>); the phase steps at each corner frequency, by ±90° for a real root and ±180° for a complex pair.</p>
+    </div>
+  </main>
+</div>
+
+<script>
+"use strict";
+/* ======================================================================= polynomials
+   Real polynomials are arrays of coefficients, highest power first (like numpy). */
+const trimP = c => { const m = Math.max(...c.map(Math.abs)); if (!(m > 0)) return null;
+  let i = 0; while (i < c.length - 1 && Math.abs(c[i]) <= 1e-12 * m) i++; return c.slice(i); };
+const addP = (a, b) => { const n = Math.max(a.length, b.length), r = new Array(n).fill(0);
+  for (let i = 0; i < a.length; i++) r[n - a.length + i] += a[i];
+  for (let i = 0; i < b.length; i++) r[n - b.length + i] += b[i]; return r; };
+const scaleP = (a, k) => a.map(x => x * k);
+const mulP = (a, b) => { const r = new Array(a.length + b.length - 1).fill(0);
+  for (let i = 0; i < a.length; i++) for (let j = 0; j < b.length; j++) r[i + j] += a[i] * b[j]; return r; };
+
+/* ---- parser: complex-coefficient polynomials, ascending order, coefficient = [re, im] */
+function tokenize(str) {
+  const s = str.replace(/\*\*/g, "^").replace(/[−–]/g, "-").replace(/·|×/g, "*"), toks = [];
+  let i = 0;
+  while (i < s.length) {
+    const ch = s[i];
+    if (/\s/.test(ch)) { i++; continue; }
+    const m = /^(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?/.exec(s.slice(i));
+    if (m) { const v = parseFloat(m[0]); i += m[0].length;
+      if (s[i] === "j" || s[i] === "i") { toks.push({ t: "num", v: [0, v] }); i++; } else toks.push({ t: "num", v: [v, 0] });
+      continue; }
+    if (ch === "s") { toks.push({ t: "s" }); i++; continue; }
+    if (ch === "j" || ch === "i") { toks.push({ t: "num", v: [0, 1] }); i++; continue; }
+    if ("+-*/^()[]".includes(ch)) { toks.push({ t: ch === "[" ? "(" : ch === "]" ? ")" : ch }); i++; continue; }
+    throw new Error(`unexpected character “${ch}” (only s, numbers and + − * / ^ ( ) are allowed)`);
+  }
+  return toks;
+}
+const cmul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+const cdiv = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
+const pAdd = (a, b) => { const r = []; for (let i = 0; i < Math.max(a.length, b.length); i++) { const x = a[i] || [0, 0], y = b[i] || [0, 0]; r.push([x[0] + y[0], x[1] + y[1]]); } return r; };
+const pScale = (a, k) => a.map(x => cmul(x, k));
+const pMul = (a, b) => { const r = Array.from({ length: a.length + b.length - 1 }, () => [0, 0]);
+  a.forEach((x, i) => b.forEach((y, j) => { const p = cmul(x, y); r[i + j][0] += p[0]; r[i + j][1] += p[1]; })); return r; };
+function parseExpr(str) {
+  const toks = tokenize(str); let k = 0;
+  const peek = () => toks[k], take = () => toks[k++];
+  function expr() { let v = term();
+    while (peek() && (peek().t === "+" || peek().t === "-")) { const op = take().t, r = term(); v = op === "+" ? pAdd(v, r) : pAdd(v, pScale(r, [-1, 0])); }
+    return v; }
+  function term() { let v = unary();
+    for (;;) { const p = peek(); if (!p) break;
+      if (p.t === "*") { take(); v = pMul(v, unary()); }
+      else if (p.t === "/") { take(); const d = unary();
+        if (d.length > 1 && d.slice(1).some(c => c[0] || c[1])) throw new Error("dividing by a polynomial is not allowed; enter the numerator and denominator separately");
+        if (!d[0][0] && !d[0][1]) throw new Error("division by zero"); v = pScale(v, cdiv([1, 0], d[0])); }
+      else if (p.t === "num" || p.t === "s" || p.t === "(") v = pMul(v, power());   // implicit multiplication
+      else break; }
+    return v; }
+  function unary() { const p = peek();
+    if (p && (p.t === "-" || p.t === "+")) { take(); const v = unary(); return p.t === "-" ? pScale(v, [-1, 0]) : v; }
+    return power(); }
+  function power() { let b = atom();
+    if (peek() && peek().t === "^") { take(); if (peek() && peek().t === "+") take();
+      const e = take();
+      if (!e || e.t !== "num" || e.v[1] !== 0 || !Number.isInteger(e.v[0]) || e.v[0] > 60) throw new Error("exponents must be whole numbers from 0 to 60");
+      let r = [[1, 0]]; for (let i = 0; i < e.v[0]; i++) r = pMul(r, b); b = r; }
+    return b; }
+  function atom() { const p = take();
+    if (!p) throw new Error("the expression ends too early");
+    if (p.t === "num") return [p.v];
+    if (p.t === "s") return [[0, 0], [1, 0]];
+    if (p.t === "(") { const v = expr(); const q = take(); if (!q || q.t !== ")") throw new Error("a closing bracket is missing"); return v; }
+    throw new Error(`unexpected “${p.t}”`); }
+  const v = expr(); if (k < toks.length) throw new Error(`unexpected “${toks[k].t}”`);
+  return v;
+}
+function parsePoly(text) {
+  const t = text.trim(); if (!t) throw new Error("the field is empty");
+  let desc = null;
+  if (!/s/.test(t)) {
+    const parts = t.replace(/^[\[(]|[\])]$/g, "").split(/[\s,;]+/).filter(Boolean);
+    const nums = parts.map(Number);
+    if (parts.length && nums.every(Number.isFinite)) desc = nums;
+  }
+  if (!desc) {
+    const asc = parseExpr(t);
+    const mx = Math.max(...asc.map(c => Math.hypot(c[0], c[1])));
+    if (asc.some(c => Math.abs(c[1]) > 1e-9 * Math.max(1, mx))) throw new Error("the coefficients are complex; complex roots must come in conjugate pairs");
+    desc = asc.map(c => c[0]).reverse();
+  }
+  const r = trimP(desc); if (!r || r.every(x => x === 0)) throw new Error("the polynomial is zero");
+  return r;
+}
+
+/* ---- roots: Aberth–Ehrlich iteration (optionally warm-started) */
+function polyRoots(descIn, init) {
+  let c = Array.from(descIn); while (c.length > 1 && c[0] === 0) c.shift();
+  const out = [];
+  while (c.length > 1 && c[c.length - 1] === 0) { c.pop(); out.push([0, 0]); }
+  const n = c.length - 1; if (n < 1) return out;
+  const a = c.map(x => x / c[0]);
+  if (n === 1) { out.push([-a[1], 0]); return out; }
+  if (n === 2) { const b = a[1], cc = a[2], disc = b * b - 4 * cc;
+    if (disc >= 0) { const q = -0.5 * (b + (b >= 0 ? 1 : -1) * Math.sqrt(disc)); out.push([q, 0], [cc / q, 0]); }
+    else { const im = Math.sqrt(-disc) / 2; out.push([-b / 2, im], [-b / 2, -im]); }
+    return out; }
+  let z;
+  const warm = init && init.length === n;
+  if (warm) z = init.map((r, i) => [r[0] + 1e-8 * (1 + Math.abs(r[0])) * Math.cos(2.1 * i + 0.3), r[1] + 1e-8 * (1 + Math.abs(r[1])) * Math.sin(2.1 * i + 0.7)]);
+  else { const r0 = Math.pow(Math.abs(a[n]), 1 / n) || 1;
+    z = Array.from({ length: n }, (_, k) => { const th = 2 * Math.PI * k / n + 0.43; return [r0 * Math.cos(th), r0 * Math.sin(th)]; }); }
+  const maxIt = warm ? 120 : 500;
+  for (let it = 0; it < maxIt; it++) {
+    let maxc = 0;
+    for (let i = 0; i < n; i++) {
+      const zi = z[i]; let pr = 1, pi = 0, dr = 0, di = 0;
+      for (let k = 1; k <= n; k++) {
+        const ndr = dr * zi[0] - di * zi[1] + pr, ndi = dr * zi[1] + di * zi[0] + pi; dr = ndr; di = ndi;
+        const npr = pr * zi[0] - pi * zi[1] + a[k], npi = pr * zi[1] + pi * zi[0]; pr = npr; pi = npi;
+      }
+      const dd = dr * dr + di * di;
+      if (dd === 0) { zi[0] += 1e-7 * (1 + Math.abs(zi[0])); maxc = 1; continue; }
+      const rr = (pr * dr + pi * di) / dd, ri = (pi * dr - pr * di) / dd;
+      let sr = 0, si = 0;
+      for (let j = 0; j < n; j++) { if (j === i) continue;
+        const ur = zi[0] - z[j][0], ui = zi[1] - z[j][1], uu = ur * ur + ui * ui;
+        if (uu > 0) { sr += ur / uu; si -= ui / uu; } }
+      const er = 1 - (rr * sr - ri * si), ei = -(rr * si + ri * sr), e2 = er * er + ei * ei;
+      let wr = rr, wi = ri; if (e2 > 0) { wr = (rr * er + ri * ei) / e2; wi = (ri * er - rr * ei) / e2; }
+      zi[0] -= wr; zi[1] -= wi;
+      const cr = Math.hypot(wr, wi) / Math.max(1, Math.hypot(zi[0], zi[1])); if (cr > maxc) maxc = cr;
+    }
+    if (maxc < 1e-13) break;
+  }
+  return out.concat(z);
+}
+
+/* ======================================================================= linear algebra */
+function matMul(A, B) { const n = A.length, m = B[0].length, p = B.length;
+  const C = Array.from({ length: n }, () => new Float64Array(m));
+  for (let i = 0; i < n; i++) for (let k = 0; k < p; k++) { const a = A[i][k]; if (a === 0) continue; const Bk = B[k], Ci = C[i]; for (let j = 0; j < m; j++) Ci[j] += a * Bk[j]; }
+  return C; }
+function solve(A, B) { const n = A.length, m = B[0].length;
+  const M = A.map(r => Float64Array.from(r)), R = B.map(r => Float64Array.from(r));
+  for (let col = 0; col < n; col++) {
+    let piv = col, best = Math.abs(M[col][col]);
+    for (let r = col + 1; r < n; r++) if (Math.abs(M[r][col]) > best) { best = Math.abs(M[r][col]); piv = r; }
+    if (best === 0) throw new Error("singular matrix");
+    [M[col], M[piv]] = [M[piv], M[col]]; [R[col], R[piv]] = [R[piv], R[col]];
+    for (let r = col + 1; r < n; r++) { const f = M[r][col] / M[col][col]; if (f === 0) continue;
+      for (let c = col; c < n; c++) M[r][c] -= f * M[col][c];
+      for (let c = 0; c < m; c++) R[r][c] -= f * R[col][c]; }
+  }
+  for (let r = n - 1; r >= 0; r--) for (let c = 0; c < m; c++) { let s = R[r][c];
+    for (let k = r + 1; k < n; k++) s -= M[r][k] * R[k][c]; R[r][c] = s / M[r][r]; }
+  return R; }
+function expm(A) {           // scaling and squaring with a [6/6] Padé approximant
+  const n = A.length; let nrm = 0;
+  for (const row of A) { let s = 0; for (const v of row) s += Math.abs(v); nrm = Math.max(nrm, s); }
+  const sc = nrm > 0.5 ? Math.ceil(Math.log2(nrm / 0.5)) : 0, f = Math.pow(2, -sc);
+  const As = A.map(r => Float64Array.from(r, v => v * f));
+  const I = () => Array.from({ length: n }, (_, i) => { const r = new Float64Array(n); r[i] = 1; return r; });
+  let X = I(); const N = I(), D = I(); let c = 1; const q = 6;
+  for (let k = 1; k <= q; k++) { c = c * (q - k + 1) / (k * (2 * q - k + 1)); X = matMul(As, X);
+    const sg = k % 2 ? -1 : 1;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { N[i][j] += c * X[i][j]; D[i][j] += sg * c * X[i][j]; } }
+  let E = solve(D, N); for (let i = 0; i < sc; i++) E = matMul(E, E);
+  return E; }
+
+/* ======================================================================= analysis */
+function stepResponse(num, den, t) {
+  const d0 = den[0], d = den.map(x => x / d0), b = num.map(x => x / d0), n = d.length - 1;
+  const y = new Float64Array(t.length);
+  if (n === 0) { y.fill(b[b.length - 1]); return y; }
+  const bb = new Array(n + 1 - b.length).fill(0).concat(b), D = bb[0];
+  const C = Array.from({ length: n }, (_, j) => bb[n - j] - D * d[n - j]);
+  const dt = t[1] - t[0];
+  const M = Array.from({ length: n + 1 }, () => new Float64Array(n + 1));
+  for (let i = 0; i < n - 1; i++) M[i][i + 1] = dt;
+  for (let j = 0; j < n; j++) M[n - 1][j] = -d[n - j] * dt;
+  M[n - 1][n] = dt;
+  const E = expm(M);
+  let x = new Float64Array(n), xn = new Float64Array(n);
+  y[0] = D;
+  for (let k = 1; k < t.length; k++) {
+    for (let i = 0; i < n; i++) { let s = E[i][n]; const Ei = E[i]; for (let j = 0; j < n; j++) s += Ei[j] * x[j]; xn[i] = s; }
+    [x, xn] = [xn, x];
+    let s = D; for (let j = 0; j < n; j++) s += C[j] * x[j]; y[k] = s;
+  }
+  return y;
+}
+function classify(p) {
+  if (!p.length) return "stable";
+  const sc = Math.max(1, ...p.map(r => Math.hypot(r[0], r[1]))), tol = 1e-9 * sc;
+  if (p.some(r => r[0] > tol)) return "unstable";
+  if (p.some(r => Math.abs(r[0]) <= tol)) return "marginal";
+  return "stable";
+}
+function autoTfinal(p) {
+  if (!p.length) return 1;
+  const scale = Math.max(1e-9, ...p.map(r => Math.hypot(r[0], r[1]))), tol = 1e-9 * Math.max(1, scale);
+  const clamp = v => Math.min(1e6, Math.max(1e-6, v));
+  const re = p.map(r => r[0]);
+  if (re.some(v => v > tol)) return clamp(5 / Math.max(...re));
+  let tf = 0;
+  const st = p.filter(r => r[0] < -tol), mg = p.filter(r => r[0] >= -tol);
+  if (st.length) tf = 6 / Math.min(...st.map(r => -r[0]));
+  const w = mg.map(r => Math.abs(r[1])).filter(v => v > tol);
+  if (w.length) tf = Math.max(tf, 12 * Math.PI / Math.min(...w));
+  if (mg.some(r => Math.hypot(r[0], r[1]) <= tol)) tf = Math.max(tf, scale > 1e-6 ? 10 / scale : 10);
+  if (!tf) tf = 10 / scale;
+  return clamp(tf);
+}
+function stepMetrics(t, y, yss) {
+  if (!isFinite(yss) || Math.abs(yss) < 1e-12) return null;
+  const yn = Array.from(y, v => v / yss);
+  let ipk = 0; for (let i = 1; i < yn.length; i++) if (yn[i] > yn[ipk]) ipk = i;
+  const Mp = Math.max(0, (yn[ipk] - 1) * 100);
+  const cross = lv => { const i = yn.findIndex(v => v >= lv); if (i < 0) return NaN; if (i === 0) return t[0];
+    return t[i - 1] + (lv - yn[i - 1]) * (t[i] - t[i - 1]) / (yn[i] - yn[i - 1]); };
+  let last = -1; for (let i = yn.length - 1; i >= 0; i--) if (Math.abs(yn[i] - 1) > 0.02) { last = i; break; }
+  const ts = last < 0 ? 0 : last === yn.length - 1 ? NaN : t[last + 1];
+  return { Mp, tp: Mp > 0.05 ? t[ipk] : NaN, ypk: y[ipk], tr: cross(0.9) - cross(0.1), ts,
+           us: Math.max(0, -Math.min(...yn) * 100) };
+}
+
+/* ======================================================================= formatting */
+const fmtN = (x, sig = 4) => { if (x === 0 || !isFinite(x)) return String(x === 0 ? 0 : x); return String(Number(x.toPrecision(sig))); };
+const htmlNum = s => s.includes("e") ? (([m, e]) => `${m}×10<sup>${Number(e)}</sup>`)(s.split("e")) : s;
+function terms(c) { const n = c.length - 1, mx = Math.max(...c.map(Math.abs));
+  return c.map((a, i) => [a, n - i]).filter(([a]) => Math.abs(a) > 1e-12 * mx); }
+function polyText(c) { let out = "";
+  terms(c).forEach(([a, pw], j) => { const mag = fmtN(Math.abs(a));
+    const body = pw === 0 ? mag : (mag === "1" ? "" : mag) + (pw === 1 ? "s" : `s^${pw}`);
+    out += j === 0 ? (a < 0 ? "-" : "") + body : ` ${a < 0 ? "-" : "+"} ${body}`; });
+  return out || "0"; }
+function polyHTML(c) { let out = "";
+  terms(c).forEach(([a, pw], j) => { const mag = htmlNum(fmtN(Math.abs(a)));
+    const body = pw === 0 ? mag : (mag === "1" ? "" : mag) + (pw === 1 ? "s" : `s<sup>${pw}</sup>`);
+    out += j === 0 ? (a < 0 ? "−" : "") + body : ` ${a < 0 ? "−" : "+"} ${body}`; });
+  return out || "0"; }
+const fmtT = v => (v == null || !isFinite(v)) ? "—" : `${fmtN(v, 3)} s`;
+const minus = s => s.replace(/-/g, "−");
+
+/* ======================================================================= state */
+const PRESETS = [
+  { name: "Type-1 plant  4 / s(s+2)", num: "4", den: "s(s+2)", mode: "open", K: 1 },
+  { name: "Three real poles  10 / (s+1)(s+2)(s+5)", num: "10", den: "(s+1)(s+2)(s+5)", mode: "open", K: 1 },
+  { name: "Plant with a zero  (s+3) / s(s+1)(s+5)", num: "s + 3", den: "s(s+1)(s+5)", mode: "open", K: 5 },
+  { name: "Unstable plant  1 / (s−1)(s+4)", num: "1", den: "(s-1)(s+4)", mode: "open", K: 8 },
+  { name: "Lightly damped  T = 4 / (s²+0.8s+4)", num: "4", den: "s^2 + 0.8s + 4", mode: "closed", K: 1 },
+  { name: "Extra zero  T = (2s+4) / (s²+2s+4)", num: "2s + 4", den: "s^2 + 2s + 4", mode: "closed", K: 1 },
+  { name: "Extra pole  T = 40 / (s²+2s+4)(s+10)", num: "40", den: "(s^2 + 2s + 4)(s + 10)", mode: "closed", K: 1 },
+  { name: "Non-minimum phase  T = (2−s) / (s+1)(s+2)", num: "2 - s", den: "(s+1)(s+2)", mode: "closed", K: 1 },
+];
+const S = {
+  items: [], k: 1, K: 1, mode: "open", tool: "move",
+  showAsym: false, bodeOf: "loop", bode: null, margins: null, bodeHover: null, showGrid: true, showOL: false, lockDC: false, lockAxes: false, lockedView: null,
+  ref: null, applied: null, sys: null, err: null, step: null,
+  view: { cx: -1, cy: 0, upp: 0.01 }, needFit: true, fitIfOut: false,
+  drag: null, pan: null, hover: null, pointer: null, stepHover: null, lastWritten: null,
+};
+const $ = id => document.getElementById(id);
+const pts = r => r.pair ? [[r.re, r.im], [r.re, -r.im]] : [[r.re, 0]];
+const rootsOf = kind => S.items.filter(r => r.kind === kind).flatMap(pts);
+const countOf = kind => S.items.filter(r => r.kind === kind).reduce((s, r) => s + (r.pair ? 2 : 1), 0);
+function groupRoots(list, kind) { const out = [];
+  for (const r of list) { const tol = 1e-5 * Math.max(1, Math.hypot(r[0], r[1]));
+    if (Math.abs(r[1]) <= tol) out.push({ kind, re: r[0], im: 0, pair: false });
+    else if (r[1] > 0) out.push({ kind, re: r[0], im: r[1], pair: true }); }
+  return out; }
+function polyFrom(kind) { let p = [1];
+  for (const r of S.items) if (r.kind === kind) p = mulP(p, r.pair ? [1, -2 * r.re, r.re * r.re + r.im * r.im] : [1, -r.re]);
+  return p; }
+function dcGain() { let n = S.k, d = 1;
+  for (const r of S.items) { const f = r.pair ? r.re * r.re + r.im * r.im : -r.re; if (r.kind === "z") n *= f; else d *= f; }
+  return Math.abs(d) < 1e-300 ? Infinity : n / d; }
+function applyDcLock(target) {
+  if (!S.lockDC || !isFinite(target) || target === 0) return;
+  let pz = 1, pp = 1;
+  for (const r of S.items) { const f = r.pair ? r.re * r.re + r.im * r.im : -r.re; if (r.kind === "z") pz *= f; else pp *= f; }
+  if (Math.abs(pp) < 1e-12 || Math.abs(pz) < 1e-12) return;
+  S.k = target * pp / pz; }
+const clone = items => items.map(r => ({ ...r }));
+
+function setStatus(msg, kind = "") { const el = $("status"); el.textContent = msg; el.className = "status " + kind; }
+
+/* ======================================================================= compute */
+function compute() {
+  const numH = scaleP(polyFrom("z"), S.k), denH = polyFrom("p");
+  let numC, denC;
+  if (S.mode === "open") {
+    numC = scaleP(numH, S.K);
+    denC = trimP(addP(denH, numC));
+    if (!denC) throw new Error("1 + K·G(s) is identically zero, so the closed loop is ill-posed.");
+    if (denC.length < numC.length) throw new Error("The closed loop is improper because 1 + K·k = 0. Change K or the gain of G(s).");
+  } else { numC = numH; denC = denH; }
+  const pC = denC.length > 1 ? polyRoots(denC) : [];
+  S.sys = { numH, denH, numC, denC, pC };
+}
+function computeStep() {
+  const sys = S.sys; let t1;
+  if (S.lockAxes && S.lockedView) t1 = S.lockedView.t1;
+  else { t1 = autoTfinal(sys.pC); if (S.ref) t1 = Math.max(t1, S.ref.t[S.ref.t.length - 1]); }
+  const wmax = Math.max(0, ...sys.pC.map(r => Math.hypot(r[0], r[1])));
+  const N = Math.round(Math.min(6000, Math.max(1200, 60 * t1 * wmax / (2 * Math.PI))));
+  const t = Float64Array.from({ length: N }, (_, i) => t1 * i / (N - 1));
+  const y = stepResponse(sys.numC, sys.denC, t);
+  let yo = null;
+  if (S.mode === "open" && S.showOL) yo = stepResponse(scaleP(sys.numH, S.K), sys.denH, t);
+  const stab = classify(sys.pC);
+  const yss = stab === "stable" ? sys.numC[sys.numC.length - 1] / sys.denC[sys.denC.length - 1] : NaN;
+  const m = stab === "stable" ? stepMetrics(t, y, yss) : null;
+  let y0, y1;
+  if (S.lockAxes && S.lockedView) ({ y0, y1 } = S.lockedView);
+  else {
+    let lo = 0, hi = 1;
+    const take = arr => { for (const v of arr) if (isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; } };
+    take(y); if (S.ref) take(S.ref.y);
+    if (yo && classify(rootsOf("p")) === "stable") take(yo);
+    const pad = (hi - lo) * 0.08 || 0.5; y0 = lo - pad; y1 = hi + pad;
+  }
+  S.step = { t, y, yo, yss, m, stab, view: { t1, y0, y1 } };
+}
+/* ======================================================================= frequency response */
+const R2D = 180 / Math.PI;
+function factorAngle(w, r) {           // continuous angle of (jω − r) as ω runs from 0 to ∞
+  const s = r[0], y = w - r[1];
+  if (s < 0) return Math.atan(y / -s);
+  if (s > 0) return -Math.PI - Math.atan(y / s);
+  return y > 0 ? Math.PI / 2 : y < 0 ? -Math.PI / 2 : 0;
+}
+function bodeRange(z, p) {             // whole decades, one below the lowest corner to one above the highest
+  const c = [...z, ...p].map(r => Math.hypot(r[0], r[1])).filter(v => v > 1e-9);
+  let a = Math.floor(Math.log10(c.length ? Math.min(...c) / 10 : 0.1)), b = Math.ceil(Math.log10(c.length ? Math.max(...c) * 10 : 10));
+  while (b - a < 3) { a--; if (b - a < 3) b++; }
+  return [a, b];
+}
+function freqResp(z, p, g, w) {
+  const n = w.length, mag = new Float64Array(n), ph = new Float64Array(n), lg = Math.log10(Math.abs(g)), g0 = g < 0 ? -Math.PI : 0;
+  for (let i = 0; i < n; i++) {
+    const wi = w[i]; let lm = lg, an = g0;
+    for (const r of z) { lm += Math.log10(Math.max(1e-300, Math.hypot(r[0], wi - r[1]))); an += factorAngle(wi, r); }
+    for (const r of p) { lm -= Math.log10(Math.max(1e-300, Math.hypot(r[0], wi - r[1]))); an -= factorAngle(wi, r); }
+    mag[i] = 20 * lm; ph[i] = an * R2D;
+  }
+  return { mag, ph };
+}
+function asymptotes(z, p, g, w) {
+  let logK = Math.log10(Math.abs(g)), n0 = 0, ph0 = g < 0 ? -180 : 0;
+  const brk = [];
+  for (const [list, sg] of [[groupRoots(z, "z"), 1], [groupRoots(p, "p"), -1]]) for (const r of list) {
+    const wc = Math.hypot(r.re, r.im), m = r.pair ? 2 : 1;
+    if (wc < 1e-12) { n0 += sg * m; ph0 += sg * 90 * m; continue; }       // roots at the origin
+    logK += sg * m * Math.log10(wc);
+    const lhp = r.re <= 0;
+    if (r.pair) { if (!lhp) ph0 -= sg * 360; brk.push({ wc, slope: sg * 40, dphi: sg * (lhp ? 180 : -180) }); }
+    else { if (!lhp) ph0 -= sg * 180; brk.push({ wc, slope: sg * 20, dphi: sg * (lhp ? 90 : -90) }); }
+  }
+  const n = w.length, mag = new Float64Array(n), ph = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const lw = Math.log10(w[i]); let m = 20 * (logK + n0 * lw), a = ph0;
+    for (const b of brk) { const d = lw - Math.log10(b.wc);
+      if (d > 0) m += b.slope * d;
+      if (d >= 0) a += b.dphi; }                 // phase asymptote: a step at each corner frequency
+    mag[i] = m; ph[i] = a;
+  }
+  return { mag, ph, corners: brk.map(b => b.wc) };
+}
+function computeBode() {
+  const of = S.mode === "open" ? S.bodeOf : "cl";
+  let z = rootsOf("z"), p, g, label;
+  if (of === "loop") { p = rootsOf("p"); g = S.K * S.k; label = "K·G"; }
+  else if (S.mode === "open") { p = S.sys.pC; g = S.sys.numC[0] / S.sys.denC[0]; label = "T"; }
+  else { p = rootsOf("p"); g = S.k; label = "T"; }
+  const [a, b] = bodeRange(z, p), N = 600;
+  const w = Float64Array.from({ length: N }, (_, i) => Math.pow(10, a + (b - a) * i / (N - 1)));
+  const { mag, ph } = freqResp(z, p, g, w);
+  const shift = -360 * Math.round(ph[0] / 360);
+  for (let i = 0; i < N; i++) ph[i] += shift;
+  let as = null;
+  if (S.showAsym) { as = asymptotes(z, p, g, w); for (let i = 0; i < N; i++) as.ph[i] += shift; }
+  S.bode = { of, label, a, b, w, mag, ph, as };
+  S.margins = S.mode === "open" ? margins() : null;
+}
+function margins() {                   // gain and phase margins of the loop K·G(jω)
+  const z = rootsOf("z"), p = rootsOf("p"), g = S.K * S.k, [a, b] = bodeRange(z, p), A = a - 3, B = b + 3, N = 4000;
+  const w = Float64Array.from({ length: N }, (_, i) => Math.pow(10, A + (B - A) * i / (N - 1)));
+  const { mag, ph } = freqResp(z, p, g, w);
+  const lerpW = (i, f) => Math.pow(10, Math.log10(w[i]) + f * (Math.log10(w[i + 1]) - Math.log10(w[i])));
+  let pm = null, gm = null;
+  for (let i = 0; i < N - 1; i++) {
+    const m1 = mag[i], m2 = mag[i + 1];
+    if (isFinite(m1) && isFinite(m2) && (m1 > 0) !== (m2 > 0)) {
+      const f = m1 / (m1 - m2), phc = ph[i] + f * (ph[i + 1] - ph[i]);
+      const v = ((phc + 180) % 360 + 540) % 360 - 180;
+      if (!pm || v < pm.v) pm = { v, w: lerpW(i, f) };
+    }
+    const k1 = Math.floor((ph[i] + 180) / 360), k2 = Math.floor((ph[i + 1] + 180) / 360);
+    if (k1 !== k2) {
+      const tg = Math.max(k1, k2) * 360 - 180, f = (tg - ph[i]) / (ph[i + 1] - ph[i]), v = -(m1 + f * (m2 - m1));
+      if (isFinite(v) && (!gm || v < gm.v)) gm = { v, w: lerpW(i, f) };
+    }
+  }
+  return { pm, gm, olUnstable: classify(p) === "unstable" };
+}
+
+/* ======================================================================= view helpers */
+const pzCv = $("pz"), stCv = $("st"), bdCv = $("bd");
+function sizeCanvas(cv) { const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return { ctx, w, h }; }
+const toPx = (x, y) => { const w = pzCv.clientWidth, h = pzCv.clientHeight, v = S.view; return [w / 2 + (x - v.cx) / v.upp, h / 2 - (y - v.cy) / v.upp]; };
+const toData = (px, py) => { const w = pzCv.clientWidth, h = pzCv.clientHeight, v = S.view; return [v.cx + (px - w / 2) * v.upp, v.cy - (py - h / 2) * v.upp]; };
+function allPoints() { const P = [...rootsOf("p"), ...rootsOf("z"), [0, 0]];
+  if (S.mode === "open" && S.sys) P.push(...S.sys.pC);
+  if (S.ref) P.push(...S.ref.p, ...S.ref.z, ...S.ref.pc);
+  return P; }
+function fitView() {
+  const P = allPoints(); let xlo = 0, xhi = 0, yh = 0;
+  for (const [x, y] of P) { xlo = Math.min(xlo, x); xhi = Math.max(xhi, x); yh = Math.max(yh, Math.abs(y)); }
+  let span = Math.max(xhi - xlo, 2 * yh); if (span < 1e-12) span = 2;
+  const pad = 0.2 * span, w = pzCv.clientWidth || 400, h = pzCv.clientHeight || 300;
+  S.view = { cx: (xlo + xhi) / 2, cy: 0, upp: Math.max((xhi - xlo + 2 * pad) / w, 2 * (yh + pad) / h) };
+}
+function outOfView() {
+  const w = pzCv.clientWidth, h = pzCv.clientHeight;
+  const P = [...rootsOf("p"), ...rootsOf("z"), ...(S.mode === "open" && S.sys ? S.sys.pC : [])];
+  return P.some(([x, y]) => { const [px, py] = toPx(x, y); return px < 6 || px > w - 6 || py < 6 || py > h - 6; });
+}
+function niceStep(range, target) { const raw = range / Math.max(1, target), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function ticks(lo, hi, target) { const st = niceStep(hi - lo, target), out = [];
+  for (let v = Math.ceil(lo / st) * st; v <= hi + st * 1e-9; v += st) out.push(Math.abs(v) < st * 1e-9 ? 0 : v);
+  return { out, st }; }
+const fmtTick = (v, st) => { const dec = Math.max(0, -Math.floor(Math.log10(st) + 1e-9)); return minus(v.toFixed(Math.min(dec, 8))); };
+function colors() { const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue(n).trim();
+  return { panel: g("--panel"), ink: g("--ink"), muted: g("--muted"), line: g("--line"), grid: g("--grid"), pz: g("--pz"),
+    cl: g("--cl"), ref: g("--ref"), ol: g("--ol"), ok: g("--ok"), bad: g("--bad"), rhp: g("--rhp"), band: g("--band"),
+    asym: g("--asym"), mono: g("--mono"), body: g("--body") }; }
+
+/* ======================================================================= drawing: s-plane */
+function drawPZ(c) {
+  const { ctx, w, h } = sizeCanvas(pzCv); if (!w || !h) return;
+  const v = S.view, X = x => w / 2 + (x - v.cx) / v.upp, Y = y => h / 2 - (y - v.cy) / v.upp;
+  const xmin = v.cx - w / 2 * v.upp, xmax = v.cx + w / 2 * v.upp, ymin = v.cy - h / 2 * v.upp, ymax = v.cy + h / 2 * v.upp;
+  ctx.fillStyle = c.panel; ctx.fillRect(0, 0, w, h);
+  const x0 = X(0), y0 = Y(0);
+  if (xmax > 0) { ctx.fillStyle = c.rhp; ctx.fillRect(Math.max(0, x0), 0, w, h); }
+  // cartesian grid
+  const tx = ticks(xmin, xmax, w / 85), ty = ticks(ymin, ymax, h / 60);
+  ctx.strokeStyle = c.grid; ctx.lineWidth = 1; ctx.beginPath();
+  for (const t of tx.out) { const p = Math.round(X(t)) + 0.5; ctx.moveTo(p, 0); ctx.lineTo(p, h); }
+  for (const t of ty.out) { const p = Math.round(Y(t)) + 0.5; ctx.moveTo(0, p); ctx.lineTo(w, p); }
+  ctx.stroke();
+  // ζ rays and ωn circles
+  if (S.showGrid && xmin < 0) {
+    ctx.save(); ctx.strokeStyle = c.muted; ctx.globalAlpha = 0.35; ctx.lineWidth = 0.8; ctx.setLineDash([3, 3]);
+    const R = 4 * Math.max(Math.abs(xmin), Math.abs(xmax), Math.abs(ymin), Math.abs(ymax));
+    const lab = [];
+    for (const z of [0.2, 0.4, 0.6, 0.8]) {
+      const dx = -z, dy = Math.sqrt(1 - z * z);
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(X(R * dx), Y(R * dy)); ctx.moveTo(x0, y0); ctx.lineTo(X(R * dx), Y(-R * dy)); ctx.stroke();
+      const tl = 0.88 * Math.min(xmin / dx, ymax > 0 ? ymax / dy : Infinity);
+      if (tl > 0 && isFinite(tl)) lab.push([`ζ ${z}`, X(tl * dx), Y(tl * dy)]);
+    }
+    const rr = ticks(0, Math.max(Math.abs(xmin), Math.abs(ymax), Math.abs(ymin)), 4).out.filter(r => r > 0);
+    for (const r of rr) { ctx.beginPath(); ctx.arc(x0, y0, r / v.upp, Math.PI / 2, 1.5 * Math.PI); ctx.stroke();
+      const a = 163 * Math.PI / 180; lab.push([`ωn ${fmtN(r, 3)}`, X(r * Math.cos(a)), Y(r * Math.sin(a))]); }
+    ctx.restore();
+    ctx.font = `10.5px ${c.mono}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (const [s, px, py] of lab) { if (px < 20 || px > w - 20 || py < 10 || py > h - 10) continue;
+      const tw = ctx.measureText(s).width; ctx.fillStyle = c.panel; ctx.globalAlpha = 0.85; ctx.fillRect(px - tw / 2 - 3, py - 7, tw + 6, 14);
+      ctx.globalAlpha = 1; ctx.fillStyle = c.muted; ctx.fillText(s, px, py); }
+  }
+  // axes
+  ctx.strokeStyle = c.muted; ctx.lineWidth = 1.2; ctx.beginPath();
+  ctx.moveTo(0, Math.round(y0) + 0.5); ctx.lineTo(w, Math.round(y0) + 0.5); ctx.moveTo(Math.round(x0) + 0.5, 0); ctx.lineTo(Math.round(x0) + 0.5, h); ctx.stroke();
+  // tick labels on the edges
+  ctx.font = `10.5px ${c.mono}`; ctx.fillStyle = c.muted; ctx.textBaseline = "bottom"; ctx.textAlign = "center";
+  for (const t of tx.out) { const p = X(t); if (p > 18 && p < w - 18) ctx.fillText(fmtTick(t, tx.st), p, h - 3); }
+  ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  for (const t of ty.out) { const p = Y(t); if (p > 10 && p < h - 18 && t !== 0) ctx.fillText(fmtTick(t, ty.st), 4, p); }
+  ctx.textAlign = "right"; ctx.textBaseline = "top"; ctx.fillText("Re(s)", w - 6, Math.min(Math.max(y0 + 4, 4), h - 30));
+  ctx.textAlign = "left"; ctx.fillText("Im(s)", Math.min(Math.max(x0 + 5, 4), w - 40), 5);
+  if (xmax > 0 && x0 < w - 70) { ctx.fillStyle = c.bad; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.8;
+    ctx.fillText("unstable", w - 6, h - 18); ctx.globalAlpha = 1; }
+  // reference ghosts
+  if (S.ref) {
+    ctx.strokeStyle = c.ref; ctx.fillStyle = c.ref; ctx.lineWidth = 1.6;
+    for (const [x, y] of S.ref.p) cross(ctx, X(x), Y(y), 6);
+    for (const [x, y] of S.ref.z) { ctx.beginPath(); ctx.arc(X(x), Y(y), 5.5, 0, 2 * Math.PI); ctx.stroke(); }
+    for (const [x, y] of S.ref.pc) diamond(ctx, X(x), Y(y), 4, c.ref, null);
+  }
+  // closed-loop poles
+  if (S.mode === "open" && S.sys && !S.err) for (const [x, y] of S.sys.pC) diamond(ctx, X(x), Y(y), 5.5, c.cl, c.panel);
+  // editable zeros and poles
+  const act = S.drag ? S.drag.item : S.hover;
+  for (const r of S.items) for (const [x, y] of pts(r)) {
+    const px = X(x), py = Y(y);
+    if (r === act) { ctx.fillStyle = c.pz; ctx.globalAlpha = 0.16; ctx.beginPath(); ctx.arc(px, py, 14, 0, 2 * Math.PI); ctx.fill(); ctx.globalAlpha = 1; }
+    ctx.strokeStyle = c.pz;
+    if (r.kind === "p") { ctx.lineWidth = 2.6; cross(ctx, px, py, 7); }
+    else { ctx.lineWidth = 2.3; ctx.beginPath(); ctx.arc(px, py, 6.5, 0, 2 * Math.PI); ctx.stroke(); }
+  }
+}
+function cross(ctx, x, y, s) { ctx.beginPath(); ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y + s); ctx.moveTo(x - s, y + s); ctx.lineTo(x + s, y - s); ctx.stroke(); }
+function diamond(ctx, x, y, s, fill, edge) { ctx.beginPath(); ctx.moveTo(x, y - s); ctx.lineTo(x + s, y); ctx.lineTo(x, y + s); ctx.lineTo(x - s, y); ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill(); if (edge) { ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke(); } }
+
+/* ======================================================================= drawing: step plot */
+function drawStep(c) {
+  const { ctx, w, h } = sizeCanvas(stCv); if (!w || !h) return;
+  ctx.fillStyle = c.panel; ctx.fillRect(0, 0, w, h);
+  const st = S.step; if (!st || S.err) { ctx.fillStyle = c.muted; ctx.font = `13px ${c.body}`; ctx.textAlign = "center"; ctx.fillText("No response to show", w / 2, h / 2); return; }
+  const L = 50, R = 12, T = 10, B = 26, pw = w - L - R, ph = h - T - B;
+  const { t1, y0, y1 } = st.view;
+  const X = t => L + t / t1 * pw, Y = y => T + (y1 - y) / (y1 - y0) * ph;
+  const tx = ticks(0, t1, pw / 80), ty = ticks(y0, y1, ph / 45);
+  ctx.strokeStyle = c.grid; ctx.lineWidth = 1; ctx.beginPath();
+  for (const t of tx.out) { const p = Math.round(X(t)) + 0.5; ctx.moveTo(p, T); ctx.lineTo(p, T + ph); }
+  for (const t of ty.out) { const p = Math.round(Y(t)) + 0.5; ctx.moveTo(L, p); ctx.lineTo(L + pw, p); }
+  ctx.stroke();
+  ctx.strokeStyle = c.line; ctx.strokeRect(L + 0.5, T + 0.5, pw - 1, ph - 1);
+  ctx.font = `10.5px ${c.mono}`; ctx.fillStyle = c.muted; ctx.textAlign = "center"; ctx.textBaseline = "top";
+  for (const t of tx.out) ctx.fillText(fmtTick(t, tx.st), X(t), T + ph + 5);
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  for (const t of ty.out) ctx.fillText(fmtTick(t, ty.st), L - 6, Y(t));
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+  // zero line
+  ctx.strokeStyle = c.muted; ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.moveTo(L, Y(0)); ctx.lineTo(L + pw, Y(0)); ctx.stroke(); ctx.globalAlpha = 1;
+  // 2% band and final value
+  if (st.stab === "stable" && Math.abs(st.yss) > 1e-12) {
+    const a = Y(st.yss * 1.02), b = Y(st.yss * 0.98); ctx.fillStyle = c.band; ctx.fillRect(L, Math.min(a, b), pw, Math.abs(b - a));
+    ctx.strokeStyle = c.ok; ctx.setLineDash([2, 3]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(L, Y(st.yss)); ctx.lineTo(L + pw, Y(st.yss)); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // input
+  ctx.strokeStyle = c.muted; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(L, Y(1)); ctx.lineTo(L + pw, Y(1)); ctx.stroke(); ctx.setLineDash([]);
+  const line = (t, y, color, lw, dash) => { ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.setLineDash(dash || []); ctx.beginPath();
+    const step = Math.max(1, Math.floor(t.length / (pw * 2)));
+    for (let i = 0; i < t.length; i += step) { const py = Math.max(-1e5, Math.min(1e5, Y(y[i]))); i ? ctx.lineTo(X(t[i]), py) : ctx.moveTo(X(t[i]), py); }
+    ctx.stroke(); ctx.setLineDash([]); };
+  if (S.ref) line(S.ref.t, S.ref.y, c.ref, 1.8, [6, 4]);
+  if (st.yo) line(st.t, st.yo, c.ol, 1.6, [2, 3]);
+  line(st.t, st.y, c.pz, 2.4);
+  const m = st.m;
+  if (m && isFinite(m.tp)) { ctx.fillStyle = c.cl; ctx.beginPath(); ctx.arc(X(m.tp), Y(m.ypk), 4.5, 0, 2 * Math.PI); ctx.fill(); }
+  if (m && isFinite(m.ts) && m.ts > 0) { ctx.strokeStyle = c.ok; ctx.lineWidth = 2.4; const yy = Y(interp(st.t, st.y, m.ts));
+    ctx.beginPath(); ctx.moveTo(X(m.ts), yy - 9); ctx.lineTo(X(m.ts), yy + 9); ctx.stroke(); }
+  // hover read-out
+  if (S.stepHover != null && S.stepHover >= L && S.stepHover <= L + pw) {
+    const tt = (S.stepHover - L) / pw * t1, yy = interp(st.t, st.y, tt);
+    ctx.strokeStyle = c.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(S.stepHover, T); ctx.lineTo(S.stepHover, T + ph); ctx.stroke();
+    ctx.fillStyle = c.pz; ctx.beginPath(); ctx.arc(S.stepHover, Y(yy), 3.5, 0, 2 * Math.PI); ctx.fill();
+    const s = `t = ${fmtN(tt, 3)} s   y = ${minus(fmtN(yy, 4))}`; ctx.font = `11px ${c.mono}`;
+    const tw = ctx.measureText(s).width, bx = Math.min(S.stepHover + 8, L + pw - tw - 12);
+    ctx.fillStyle = c.panel; ctx.globalAlpha = 0.92; ctx.fillRect(bx, T + 6, tw + 10, 18); ctx.globalAlpha = 1;
+    ctx.strokeStyle = c.line; ctx.strokeRect(bx + 0.5, T + 6.5, tw + 9, 17);
+    ctx.fillStyle = c.ink; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(s, bx + 5, T + 15);
+  }
+  ctx.restore();
+}
+function interp(t, y, tt) { const n = t.length, i = Math.min(n - 2, Math.max(0, Math.floor(tt / t[n - 1] * (n - 1))));
+  const f = (tt - t[i]) / (t[i + 1] - t[i]); return y[i] + f * (y[i + 1] - y[i]); }
+
+/* ======================================================================= drawing: Bode */
+const logInterp = (B, arr, om) => { const N = B.w.length, f = (Math.log10(om) - B.a) / (B.b - B.a) * (N - 1);
+  if (f <= 0) return arr[0]; if (f >= N - 1) return arr[N - 1]; const i = Math.floor(f); return arr[i] + (f - i) * (arr[i + 1] - arr[i]); };
+function drawBode(c) {
+  const { ctx, w, h } = sizeCanvas(bdCv); if (!w || !h) return;
+  ctx.fillStyle = c.panel; ctx.fillRect(0, 0, w, h);
+  const B = S.bode;
+  if (!B || S.err) { ctx.fillStyle = c.muted; ctx.font = `13px ${c.body}`; ctx.textAlign = "center"; ctx.fillText("No frequency response to show", w / 2, h / 2); return; }
+  const L = 62, Rm = 14, T = 10, G = 30, Bm = 26, pw = w - L - Rm, hh = h - T - Bm - G, h1 = Math.round(hh * 0.55), h2 = hh - h1;
+  const tops = [T, T + h1 + G], hs = [h1, h2];
+  const X = om => L + (Math.log10(om) - B.a) / (B.b - B.a) * pw;
+  const ref = S.ref && S.ref.bode && S.ref.bode.of === B.of && S.ref.bode.label === B.label ? S.ref.bode : null;
+  const range = (arrs, minSpan) => { let lo = Infinity, hi = -Infinity;
+    for (const a of arrs) for (const v of a) if (isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
+    if (!isFinite(lo)) { lo = -1; hi = 1; }
+    if (hi - lo < minSpan) { const m = (hi + lo) / 2; lo = m - minSpan / 2; hi = m + minSpan / 2; }
+    const pad = (hi - lo) * 0.06; return [lo - pad, hi + pad]; };
+  const magArrs = [B.mag], phArrs = [B.ph];
+  if (B.as) { magArrs.push(B.as.mag); phArrs.push(B.as.ph); }
+  if (ref) { magArrs.push(ref.mag); phArrs.push(ref.ph); }
+  let [m0, m1] = range(magArrs, 20); if (B.of === "loop") { m0 = Math.min(m0, -10); m1 = Math.max(m1, 10); }
+  let [p0, p1] = range(phArrs, 90);
+  if (B.of === "loop") { p0 = Math.min(p0, -190); }
+  const tm = ticks(m0, m1, h1 / 38);
+  const span = p1 - p0, pst = [15, 30, 45, 90, 180, 360].find(v => span / v <= Math.max(3, h2 / 32)) || 720;
+  const tp = { out: [], st: pst }; for (let v = Math.ceil(p0 / pst) * pst; v <= p1; v += pst) tp.out.push(v);
+  const Ys = [v => tops[0] + (m1 - v) / (m1 - m0) * h1, v => tops[1] + (p1 - v) / (p1 - p0) * h2];
+  ctx.font = `10.5px ${c.mono}`;
+  for (let k = 0; k < 2; k++) {
+    const top = tops[k], ph_ = hs[k], Y = Ys[k], tk = k ? tp : tm;
+    ctx.lineWidth = 1; ctx.strokeStyle = c.grid; ctx.beginPath();
+    for (let d = B.a; d < B.b; d++) for (let j = 2; j < 10; j++) { const x = Math.round(X(j * Math.pow(10, d))) + 0.5; ctx.moveTo(x, top); ctx.lineTo(x, top + ph_); }
+    ctx.globalAlpha = 0.55; ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.beginPath();
+    for (let d = B.a; d <= B.b; d++) { const x = Math.round(X(Math.pow(10, d))) + 0.5; ctx.moveTo(x, top); ctx.lineTo(x, top + ph_); }
+    for (const v of tk.out) { const y = Math.round(Y(v)) + 0.5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); }
+    ctx.stroke();
+    ctx.strokeStyle = c.line; ctx.strokeRect(L + 0.5, top + 0.5, pw - 1, ph_ - 1);
+    ctx.fillStyle = c.muted; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (const v of tk.out) ctx.fillText(k ? minus(String(v)) + "°" : fmtTick(v, tk.st), L - 6, Y(v));
+    ctx.save(); ctx.translate(13, top + ph_ / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.font = `11px ${c.body}`;
+    ctx.fillText(k ? "Phase (°)" : "Magnitude (dB)", 0, 0); ctx.restore(); ctx.font = `10.5px ${c.mono}`;
+    // emphasised reference lines: 0 dB and −180° (+k·360°) for the loop
+    ctx.save(); ctx.beginPath(); ctx.rect(L, top, pw, ph_); ctx.clip();
+    ctx.strokeStyle = c.muted; ctx.lineWidth = 1.1; ctx.beginPath();
+    if (!k && 0 >= m0 && 0 <= m1) { ctx.moveTo(L, Y(0)); ctx.lineTo(L + pw, Y(0)); }
+    if (k && B.of === "loop") for (let v = Math.ceil((p0 + 180) / 360) * 360 - 180; v <= p1; v += 360) { ctx.moveTo(L, Y(v)); ctx.lineTo(L + pw, Y(v)); }
+    ctx.stroke();
+    const curve = (arr, color, lw, dash) => { ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.setLineDash(dash || []); ctx.beginPath();
+      for (let i = 0; i < arr.length; i++) { const y = Math.max(-1e5, Math.min(1e5, Y(arr[i]))); i ? ctx.lineTo(X(B.w[i]), y) : ctx.moveTo(X(B.w[i]), y); }
+      ctx.stroke(); ctx.setLineDash([]); };
+    if (B.as) {
+      ctx.strokeStyle = c.asym; ctx.globalAlpha = 0.45; ctx.lineWidth = 1; ctx.setLineDash([1, 3]); ctx.beginPath();
+      for (const wc of B.as.corners) if (wc > B.w[0] && wc < B.w[B.w.length - 1]) { ctx.moveTo(X(wc), top); ctx.lineTo(X(wc), top + ph_); }
+      ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+    if (ref) curve(k ? ref.ph : ref.mag, c.ref, 1.8, [6, 4]);
+    curve(k ? B.ph : B.mag, c.pz, 2.3);
+    if (B.as) curve(k ? B.as.ph : B.as.mag, c.asym, 1.9, [7, 4]);
+    ctx.restore();
+  }
+  // decade labels under the phase panel
+  ctx.fillStyle = c.muted; ctx.textAlign = "center"; ctx.textBaseline = "top";
+  const decLab = d => (d >= -3 && d <= 4) ? String(Number(Math.pow(10, d).toPrecision(1))) : `1e${d}`;
+  for (let d = B.a; d <= B.b; d++) ctx.fillText(decLab(d), X(Math.pow(10, d)), tops[1] + h2 + 5);
+  ctx.textAlign = "right"; ctx.fillText("ω (rad/s)", L + pw, tops[1] + h2 + 5 + 13 > h ? tops[1] - 22 : tops[1] - 22);
+  // margins
+  const M = B.of === "loop" ? S.margins : null;
+  const tag = (s, x, y, color) => { ctx.font = `600 10.5px ${c.mono}`; const tw = ctx.measureText(s).width, bx = Math.min(Math.max(x + 6, L + 2), L + pw - tw - 8);
+    ctx.fillStyle = c.panel; ctx.globalAlpha = 0.9; ctx.fillRect(bx - 3, y - 8, tw + 6, 16); ctx.globalAlpha = 1; ctx.fillStyle = color; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(s, bx, y); ctx.font = `10.5px ${c.mono}`; };
+  const inRange = om => om >= B.w[0] && om <= B.w[B.w.length - 1];
+  if (M && M.pm && inRange(M.pm.w)) {
+    const x = X(M.pm.w), phc = logInterp(B, B.ph, M.pm.w), Y = Ys[1];
+    ctx.strokeStyle = c.cl; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, Y(phc - M.pm.v)); ctx.lineTo(x, Y(phc)); ctx.stroke();
+    ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x, Ys[0](0)); ctx.lineTo(x, tops[1] + h2); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    tag(`PM ${minus(fmtN(M.pm.v, 3))}°`, x, (Y(phc - M.pm.v) + Y(phc)) / 2, c.cl);
+  }
+  if (M && M.gm && inRange(M.gm.w)) {
+    const x = X(M.gm.w), Y = Ys[0], mg = logInterp(B, B.mag, M.gm.w);
+    ctx.strokeStyle = c.cl; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, Y(0)); ctx.lineTo(x, Y(mg)); ctx.stroke();
+    ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x, Y(mg)); ctx.lineTo(x, tops[1] + h2); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    tag(`GM ${minus(fmtN(M.gm.v, 3))} dB`, x, (Y(0) + Y(mg)) / 2, c.cl);
+  }
+  // hover read-out
+  if (S.bodeHover != null && S.bodeHover >= L && S.bodeHover <= L + pw) {
+    const om = Math.pow(10, B.a + (S.bodeHover - L) / pw * (B.b - B.a)), mv = logInterp(B, B.mag, om), pv = logInterp(B, B.ph, om);
+    ctx.strokeStyle = c.muted; ctx.lineWidth = 1; ctx.beginPath();
+    ctx.moveTo(S.bodeHover, tops[0]); ctx.lineTo(S.bodeHover, tops[0] + h1); ctx.moveTo(S.bodeHover, tops[1]); ctx.lineTo(S.bodeHover, tops[1] + h2); ctx.stroke();
+    ctx.fillStyle = c.pz; for (const [Y, v] of [[Ys[0], mv], [Ys[1], pv]]) { ctx.beginPath(); ctx.arc(S.bodeHover, Y(v), 3.5, 0, 2 * Math.PI); ctx.fill(); }
+    const s = `ω = ${fmtN(om, 3)} rad/s   |${B.label}| = ${minus(fmtN(mv, 3))} dB   ∠ = ${minus(fmtN(pv, 4))}°`;
+    ctx.font = `11px ${c.mono}`; const tw = ctx.measureText(s).width, bx = Math.max(L + 4, Math.min(S.bodeHover + 8, L + pw - tw - 12));
+    ctx.fillStyle = c.panel; ctx.globalAlpha = 0.92; ctx.fillRect(bx, tops[0] + 6, tw + 10, 18); ctx.globalAlpha = 1;
+    ctx.strokeStyle = c.line; ctx.strokeRect(bx + 0.5, tops[0] + 6.5, tw + 9, 17);
+    ctx.fillStyle = c.ink; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(s, bx + 5, tops[0] + 15);
+  }
+}
+
+/* ======================================================================= DOM read-outs */
+const icon = {
+  pole: `<svg viewBox="0 0 18 12"><path d="M5 2l8 8M5 10l8-8" stroke="var(--pz)" stroke-width="2.2" fill="none"/></svg>`,
+  zero: `<svg viewBox="0 0 18 12"><circle cx="9" cy="6" r="4.3" stroke="var(--pz)" stroke-width="2" fill="none"/></svg>`,
+  cl: `<svg viewBox="0 0 18 12"><path d="M9 1.5l4.5 4.5L9 10.5 4.5 6z" fill="var(--cl)"/></svg>`,
+  asym: `<svg viewBox="0 0 18 12"><path d="M1 6h16" stroke="var(--asym)" stroke-width="1.9" stroke-dasharray="5 3" fill="none"/></svg>`,
+  marg: `<svg viewBox="0 0 18 12"><path d="M9 0v12" stroke="var(--cl)" stroke-width="2"/></svg>`,
+  ref: `<svg viewBox="0 0 18 12"><path d="M5 2l8 8M5 10l8-8" stroke="var(--ref)" stroke-width="1.6" fill="none"/></svg>`,
+  y: `<svg viewBox="0 0 18 12"><path d="M1 6h16" stroke="var(--pz)" stroke-width="2.4" fill="none"/></svg>`,
+  u: `<svg viewBox="0 0 18 12"><path d="M1 6h16" stroke="var(--muted)" stroke-width="1.3" stroke-dasharray="4 3" fill="none"/></svg>`,
+  r: `<svg viewBox="0 0 18 12"><path d="M1 6h16" stroke="var(--ref)" stroke-width="1.8" stroke-dasharray="5 3" fill="none"/></svg>`,
+  ol: `<svg viewBox="0 0 18 12"><path d="M1 6h16" stroke="var(--ol)" stroke-width="1.8" stroke-dasharray="2 2.5" fill="none"/></svg>`,
+  band: `<svg viewBox="0 0 18 12"><rect x="1" y="2.5" width="16" height="7" fill="var(--band)"/><path d="M1 6h16" stroke="var(--ok)" stroke-dasharray="2 2" fill="none"/></svg>`,
+  peak: `<svg viewBox="0 0 18 12"><circle cx="9" cy="6" r="4" fill="var(--cl)"/></svg>`,
+  ts: `<svg viewBox="0 0 18 12"><path d="M9 0v12" stroke="var(--ok)" stroke-width="2.4"/></svg>`,
+};
+const chip = (k, s) => `<span>${icon[k]}${s}</span>`;
+function frac(n, d) { return `<span class="frac"><span>${n}</span><span>${d}</span></span>`; }
+function updateDOM() {
+  const H = S.mode === "open" ? "G" : "T", sys = S.sys, st = S.step;
+  $("pzTitle").textContent = `Poles and zeros of ${H}(s)`;
+  $("stTitle").textContent = S.mode === "open" ? "Unit-step response of the closed loop" : "Unit-step response of T(s)";
+  $("gainGroup").hidden = S.mode !== "open";
+  $("modeHint").textContent = S.mode === "open"
+    ? "The loop is closed with unity negative feedback: T = KG / (1 + KG)."
+    : "The step response of the entered T(s) is shown directly.";
+  // transfer functions
+  let tf = "";
+  if (sys) {
+    tf = `<div class="eq"><span class="lhs">${H}(s) =</span>${frac(polyHTML(sys.numH), polyHTML(sys.denH))}${S.mode === "open" ? `<span class="note">K = ${fmtN(S.K, 3)}</span>` : ""}</div>`;
+    if (S.mode === "open" && !S.err) tf += `<div class="eq"><span class="lhs">T(s) =</span>${frac(polyHTML(sys.numC), polyHTML(sys.denC))}</div>`;
+  }
+  $("tf").innerHTML = tf;
+  // legends
+  let lg = chip("pole", `poles of ${H}(s)`) + chip("zero", `zeros of ${H}(s)`);
+  if (S.mode === "open") lg += chip("cl", `closed-loop poles (K = ${fmtN(S.K, 3)})`);
+  if (S.ref) lg += chip("ref", "reference");
+  $("pzLegend").innerHTML = lg;
+  let sl = chip("y", "y(t)") + chip("u", "input u(t) = 1");
+  if (st && st.stab === "stable") sl += chip("band", "final value ± 2 %");
+  if (st && st.m && isFinite(st.m.tp)) sl += chip("peak", "peak");
+  if (st && st.m && isFinite(st.m.ts) && st.m.ts > 0) sl += chip("ts", "settling time");
+  if (S.ref) sl += chip("r", "reference");
+  if (st && st.yo) sl += chip("ol", "open-loop step of K·G(s)");
+  $("stLegend").innerHTML = sl;
+  // Bode controls and legend
+  const B = S.bode;
+  $("bodeOf").hidden = S.mode !== "open";
+  for (const b of $("bodeOf").children) b.setAttribute("aria-checked", String(b.dataset.v === S.bodeOf));
+  $("bdTitle").textContent = B ? (B.of === "loop" ? "Bode diagram of the loop K·G(jω)" : "Bode diagram of T(jω)") : "Bode diagram";
+  let bl = chip("y", "exact");
+  if (B && B.as) bl += chip("asym", "straight-line asymptotes") + `<span><svg viewBox="0 0 18 12"><path d="M9 0v12" stroke="var(--asym)" stroke-dasharray="1 2.5" stroke-width="1.4"/></svg>corner frequencies</span>`;
+  if (B && B.of === "loop" && S.margins && (S.margins.pm || S.margins.gm)) bl += chip("marg", "gain and phase margins");
+  if (B && S.ref && S.ref.bode && S.ref.bode.of === B.of) bl += chip("r", "reference");
+  $("bdLegend").innerHTML = bl;
+  // metrics
+  if (S.err || !st) $("metrics").innerHTML = `<h3>Step-response metrics</h3><p class="none">No response: fix the transfer function first.</p>`;
+  else {
+    const pill = { stable: ["ok", "Stable"], marginal: ["warn", "Marginally stable"], unstable: ["bad", "Unstable"] }[st.stab];
+    let rows = "";
+    if (st.stab === "stable") {
+      rows += `<dt>Final value y(∞)</dt><dd>${minus(fmtN(st.yss))}</dd>`;
+      if (S.mode === "open") rows += `<dt>Steady-state error</dt><dd>${minus(fmtN(1 - st.yss))}</dd>`;
+      if (st.m) { rows += `<dt>Overshoot</dt><dd>${st.m.Mp.toFixed(2)} %</dd><dt>Peak time</dt><dd>${fmtT(st.m.tp)}</dd>`
+        + `<dt>Rise time 10–90 %</dt><dd>${fmtT(st.m.tr)}</dd><dt>Settling time 2 %</dt><dd>${fmtT(st.m.ts)}</dd>`;
+        if (st.m.us > 0.1) rows += `<dt>Undershoot</dt><dd>${st.m.us.toFixed(2)} %</dd>`; }
+    }
+    let html = `<h3>Step-response metrics <span class="pill ${pill[0]}">${pill[1]}</span></h3>`
+      + (rows ? `<dl class="m">${rows}</dl>` : `<p class="none">${st.stab === "unstable" ? "A pole is in the right half-plane, so the response grows without bound." : "Poles on the imaginary axis: the response does not settle."}</p>`);
+    const M = S.margins;
+    if (S.mode === "open" && M) {
+      const gm = M.gm ? `${minus(fmtN(M.gm.v, 3))} dB at ${fmtN(M.gm.w, 3)} rad/s` : "∞ (phase never reaches −180°)";
+      const pm = M.pm ? `${minus(fmtN(M.pm.v, 3))}° at ${fmtN(M.pm.w, 3)} rad/s` : "none (|K·G| never crosses 0 dB)";
+      html += `<h3 class="sub2"><span>Stability margins of <span class="nt">K·G(s)</span></span></h3><dl class="m"><dt>Gain margin</dt><dd>${gm}</dd><dt>Phase margin</dt><dd>${pm}</dd></dl>`;
+      if (M.olUnstable) html += `<p class="hint">The open loop has right-half-plane poles, so these margins do not decide closed-loop stability. Use the Nyquist criterion, or read stability from the closed-loop poles.</p>`;
+    }
+    $("metrics").innerHTML = html;
+  }
+  // roots table
+  const row = r => { const v = r.pair ? `${minus(fmtN(r.re, 3))} ± j${fmtN(Math.abs(r.im), 3)}` : minus(fmtN(r.re, 4));
+    const wn = Math.hypot(r.re, r.im), z = wn ? -r.re / wn : NaN, tau = r.re < 0 ? -1 / r.re : NaN;
+    return `<tr><td class="${r.re > 1e-12 ? "rhp" : ""}">${v}</td><td>${r.pair ? minus(fmtN(z, 3)) : "—"}</td><td>${r.pair ? fmtN(wn, 3) : "—"}</td><td>${isFinite(tau) ? fmtN(tau, 3) + " s" : "—"}</td></tr>`; };
+  const sec = (title, list) => `<tbody><tr><th colspan="4">${title}</th></tr>` + (list.length ? list.sort((a, b) => b.re - a.re).map(row).join("") : `<tr><td colspan="4" style="color:var(--muted)">none</td></tr>`) + `</tbody>`;
+  let tbl = `<thead><tr><th>Location</th><th>ζ</th><th>ω<sub>n</sub></th><th>τ</th></tr></thead>`;
+  tbl += sec(`Poles of ${H}(s)`, S.items.filter(r => r.kind === "p"));
+  tbl += sec(`Zeros of ${H}(s)`, S.items.filter(r => r.kind === "z"));
+  if (S.mode === "open" && sys && !S.err) tbl += sec("Closed-loop poles", groupRoots(sys.pC, "p"));
+  $("roots").innerHTML = tbl;
+}
+
+/* ======================================================================= render loop */
+let pending = false;
+function schedule() { if (!pending) { pending = true; requestAnimationFrame(render); } }
+function render() {
+  pending = false;
+  S.err = null;
+  try { compute(); } catch (e) { S.err = e.message; setStatus(e.message, "bad"); }
+  if (S.needFit && pzCv.clientWidth) { fitView(); S.needFit = false; }
+  if (S.fitIfOut && !S.err && outOfView()) fitView();
+  S.fitIfOut = false;
+  if (!S.err) { try { computeStep(); } catch (e) { S.err = "Could not compute the step response: " + e.message; setStatus(S.err, "bad"); } }
+  if (!S.err) computeBode(); else { S.bode = null; S.margins = null; }
+  const c = colors();
+  drawPZ(c); drawStep(c); drawBode(c); updateDOM();
+}
+function writeInputs() {
+  if (!S.sys) return;
+  $("num").value = polyText(S.sys.numH); $("den").value = polyText(S.sys.denH);
+  $("num").classList.remove("invalid"); $("den").classList.remove("invalid");
+  S.lastWritten = [$("num").value, $("den").value];
+}
+
+/* ======================================================================= actions */
+function apply() {
+  let num, den;
+  for (const [id, setter] of [["num", v => num = v], ["den", v => den = v]]) {
+    try { setter(parsePoly($(id).value)); $(id).classList.remove("invalid"); }
+    catch (e) { $(id).classList.add("invalid"); setStatus(`${id === "num" ? "Numerator" : "Denominator"}: ${e.message}.`, "bad"); return; }
+  }
+  if (num.length > den.length) { $("num").classList.add("invalid");
+    setStatus("The numerator has a higher degree than the denominator. Enter a proper transfer function (no more zeros than poles).", "bad"); return; }
+  S.k = num[0] / den[0];
+  S.items = [...groupRoots(polyRoots(num), "z"), ...groupRoots(polyRoots(den), "p")];
+  S.applied = { items: clone(S.items), k: S.k };
+  S.lastWritten = [$("num").value, $("den").value];
+  S.needFit = true;
+  setStatus(`Applied ${S.mode === "open" ? "G" : "T"}(s).`, "good");
+  schedule();
+}
+function reset() { if (!S.applied) return; S.items = clone(S.applied.items); S.k = S.applied.k; S.needFit = true;
+  setStatus("Back to the last applied transfer function."); compute(); writeInputs(); schedule(); }
+function setMode(m) { S.mode = m; for (const b of $("mode").children) b.setAttribute("aria-checked", String(b.dataset.v === m)); S.needFit = true; schedule(); }
+function setTool(t) { S.tool = t; for (const b of $("tool").children) b.setAttribute("aria-checked", String(b.dataset.v === t));
+  pzCv.style.cursor = t === "move" ? "default" : t === "delete" ? "not-allowed" : "crosshair"; }
+function setK(K, from) { if (!(K > 0)) return; S.K = K;
+  if (from !== "slider") $("kslider").value = String(Math.max(-3, Math.min(3, Math.log10(K))));
+  if (from !== "num") $("knum").value = fmtN(K, 4);
+  S.fitIfOut = true; schedule(); }
+function addRoot(kind, px, py) {
+  const [x, y] = toData(px, py), axisPx = toPx(x, 0)[1], real = Math.abs(py - axisPx) < 8, n = real ? 1 : 2;
+  if (kind === "z" && countOf("z") + n > countOf("p")) { setStatus("That zero would give more zeros than poles. Add a pole first.", "bad"); return; }
+  const dc = dcGain();
+  S.items.push({ kind, re: x, im: real ? 0 : Math.abs(y), pair: !real });
+  applyDcLock(dc);
+  setStatus(`Added ${real ? "a real" : "a complex pair of"} ${kind === "p" ? "pole" : "zero"}${real ? "" : "s"} at ${minus(fmtN(x, 3))}${real ? "" : ` ± j${fmtN(Math.abs(y), 3)}`}.`, "good");
+  compute(); writeInputs(); schedule();
+}
+function deleteRoot(r) {
+  const n = r.pair ? 2 : 1;
+  if (r.kind === "p" && countOf("p") - n < countOf("z")) { setStatus("Deleting that pole would leave more zeros than poles. Delete a zero first.", "bad"); return; }
+  const dc = dcGain(); S.items = S.items.filter(q => q !== r); applyDcLock(dc);
+  setStatus(`Deleted ${r.pair ? "a complex pair of " + (r.kind === "p" ? "poles" : "zeros") : "a " + (r.kind === "p" ? "pole" : "zero")}.`, "good");
+  if (S.hover === r) S.hover = null;
+  compute(); writeInputs(); schedule();
+}
+function hitTest(px, py, tol) { let best = null, bd = tol;
+  for (const r of S.items) for (const [x, y] of pts(r)) { const [qx, qy] = toPx(x, y), d = Math.hypot(qx - px, qy - py); if (d < bd) { bd = d; best = r; } }
+  return best; }
+function local(e) { const b = pzCv.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; }
+
+/* ======================================================================= events: s-plane */
+pzCv.addEventListener("contextmenu", e => e.preventDefault());
+pzCv.addEventListener("pointerdown", e => {
+  const [px, py] = local(e), tol = e.pointerType === "touch" ? 24 : 13, hit = hitTest(px, py, tol);
+  if (e.button === 2) { if (hit) deleteRoot(hit); return; }
+  if (e.button !== 0) return;
+  pzCv.focus({ preventScroll: true });
+  if (S.tool === "pole" || S.tool === "zero") { addRoot(S.tool === "pole" ? "p" : "z", px, py); return; }
+  if (S.tool === "delete") { if (hit) deleteRoot(hit); else setStatus("Click a pole or zero to delete it."); return; }
+  if (hit) {
+    let partner = null;
+    if (!hit.pair) { const [hx, hy] = toPx(hit.re, 0);
+      partner = S.items.find(q => q !== hit && q.kind === hit.kind && !q.pair && Math.hypot(toPx(q.re, 0)[0] - hx, toPx(q.re, 0)[1] - hy) < 8) || null; }
+    const dc = dcGain();
+    if (S.lockDC && (!isFinite(dc) || dc === 0)) setStatus("The DC gain is infinite or zero (a pole or zero at s = 0), so it cannot be locked.", "bad");
+    S.drag = { item: hit, partner, x0: px, y0: py, dc };
+    pzCv.style.cursor = "grabbing";
+  } else S.pan = { x0: px, y0: py, cx: S.view.cx, cy: S.view.cy };
+  pzCv.setPointerCapture(e.pointerId);
+  schedule();
+});
+pzCv.addEventListener("pointermove", e => {
+  const [px, py] = local(e); S.pointer = [px, py];
+  const d = S.drag;
+  if (d) {
+    const [x, y] = toData(px, py), r = d.item;
+    if (r.pair) { r.re = x; r.im = Math.max(Math.abs(y), 1e-12); }
+    else if (d.partner && Math.abs(py - d.y0) > 16 && Math.abs(py - d.y0) > Math.abs(px - d.x0)) {
+      S.items = S.items.filter(q => q !== d.partner); r.pair = true; r.re = x; r.im = Math.abs(y); d.partner = null;
+      setStatus("Two coincident real roots became a complex-conjugate pair.", "good");
+    } else { r.re = x; r.im = 0; }
+    applyDcLock(d.dc);
+    try { compute(); writeInputs(); } catch (_) { }
+    schedule(); return;
+  }
+  if (S.pan) { S.view.cx = S.pan.cx - (px - S.pan.x0) * S.view.upp; S.view.cy = S.pan.cy + (py - S.pan.y0) * S.view.upp; schedule(); return; }
+  if (S.tool === "move") { const h = hitTest(px, py, 13); if (h !== S.hover) { S.hover = h; pzCv.style.cursor = h ? "grab" : "default"; schedule(); } }
+});
+function endPointer() {
+  const d = S.drag; S.drag = null; S.pan = null;
+  if (d) {
+    const r = d.item;
+    if (r.pair && Math.abs(toPx(r.re, r.im)[1] - toPx(r.re, 0)[1]) < 8) {
+      r.pair = false; r.im = 0; S.items.push({ kind: r.kind, re: r.re, im: 0, pair: false });
+      setStatus(`The pair landed on the real axis and split into two real ${r.kind === "p" ? "poles" : "zeros"}.`, "good");
+    }
+    applyDcLock(d.dc); S.fitIfOut = true;
+    try { compute(); writeInputs(); } catch (_) { }
+    pzCv.style.cursor = S.tool === "move" ? (S.hover ? "grab" : "default") : pzCv.style.cursor;
+  }
+  schedule();
+}
+pzCv.addEventListener("pointerup", endPointer);
+pzCv.addEventListener("pointercancel", endPointer);
+pzCv.addEventListener("pointerleave", () => { if (!S.drag && !S.pan) { S.pointer = null; if (S.hover) { S.hover = null; schedule(); } } });
+pzCv.addEventListener("wheel", e => { e.preventDefault();
+  const [px, py] = local(e), [x, y] = toData(px, py), f = Math.exp(Math.max(-0.5, Math.min(0.5, e.deltaY * 0.0015)));
+  S.view.upp *= f; const [nx, ny] = toData(px, py); S.view.cx += x - nx; S.view.cy += y - ny; schedule(); }, { passive: false });
+window.addEventListener("keydown", e => {
+  const tag = (document.activeElement && document.activeElement.tagName) || "";
+  if (/INPUT|SELECT|TEXTAREA/.test(tag) || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === "Escape") { setTool("move"); return; }
+  if (!S.pointer) return;
+  const [px, py] = S.pointer;
+  if (e.key === "x" || e.key === "X") { e.preventDefault(); addRoot("p", px, py); }
+  else if (e.key === "o" || e.key === "O") { e.preventDefault(); addRoot("z", px, py); }
+  else if (e.key === "d" || e.key === "D" || e.key === "Delete" || e.key === "Backspace") { const h = hitTest(px, py, 30); if (h) { e.preventDefault(); deleteRoot(h); } }
+});
+
+/* ======================================================================= events: step plot + controls */
+stCv.addEventListener("pointermove", e => { const b = stCv.getBoundingClientRect(); S.stepHover = e.clientX - b.left; schedule(); });
+stCv.addEventListener("pointerleave", () => { S.stepHover = null; schedule(); });
+$("apply").addEventListener("click", apply);
+$("reset").addEventListener("click", reset);
+for (const id of ["num", "den"]) $(id).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); apply(); } });
+$("mode").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setMode(b.dataset.v); });
+$("tool").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setTool(b.dataset.v); });
+$("kslider").addEventListener("input", e => setK(Math.pow(10, Number(e.target.value)), "slider"));
+$("knum").addEventListener("change", e => { const v = Number(e.target.value); if (v > 0) setK(v, "num"); else { e.target.value = fmtN(S.K, 4); setStatus("K must be a positive number.", "bad"); } });
+$("cAsym").addEventListener("change", e => { S.showAsym = e.target.checked; schedule(); });
+$("bodeOf").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { S.bodeOf = b.dataset.v; schedule(); } });
+bdCv.addEventListener("pointermove", e => { const b = bdCv.getBoundingClientRect(); S.bodeHover = e.clientX - b.left; schedule(); });
+bdCv.addEventListener("pointerleave", () => { S.bodeHover = null; schedule(); });
+$("cGrid").addEventListener("change", e => { S.showGrid = e.target.checked; schedule(); });
+$("cOL").addEventListener("change", e => { S.showOL = e.target.checked; schedule(); });
+$("cDC").addEventListener("change", e => { S.lockDC = e.target.checked;
+  if (S.lockDC) { const dc = dcGain(); setStatus(!isFinite(dc) || dc === 0 ? "The DC gain is infinite or zero (a pole or zero at s = 0), so it cannot be locked." : `DC gain locked at ${minus(fmtN(dc))}.`, !isFinite(dc) || dc === 0 ? "bad" : "good"); } });
+$("cAxes").addEventListener("change", e => { S.lockAxes = e.target.checked; S.lockedView = S.lockAxes && S.step ? { ...S.step.view } : null; schedule(); });
+$("freeze").addEventListener("click", () => { if (!S.step || S.err) return;
+  S.ref = { t: S.step.t.slice(), y: S.step.y.slice(), p: rootsOf("p"), z: rootsOf("z"), pc: S.mode === "open" ? S.sys.pC.map(r => r.slice()) : [],
+    bode: S.bode ? { of: S.bode.of, label: S.bode.label, w: S.bode.w.slice(), mag: S.bode.mag.slice(), ph: S.bode.ph.slice() } : null };
+  setStatus("Reference frozen in grey. Now move poles or zeros to compare.", "good"); schedule(); });
+$("clear").addEventListener("click", () => { S.ref = null; setStatus("Reference cleared."); schedule(); });
+$("fit").addEventListener("click", () => { S.needFit = true; schedule(); });
+const sel = $("preset");
+sel.innerHTML = `<option value="">Choose an example…</option>` + PRESETS.map((p, i) => `<option value="${i}">${p.name}</option>`).join("");
+sel.addEventListener("change", () => { const p = PRESETS[Number(sel.value)]; if (!p) return;
+  $("num").value = p.num; $("den").value = p.den; setMode(p.mode); setK(p.K); apply(); });
+
+new ResizeObserver(() => schedule()).observe(pzCv);
+new ResizeObserver(() => schedule()).observe(stCv);
+new ResizeObserver(() => schedule()).observe(bdCv);
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", schedule);
+new MutationObserver(schedule).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+setTool("move");
+apply();
+</script>
+
+</body>
+</html>
