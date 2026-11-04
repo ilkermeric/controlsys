@@ -2,7 +2,7 @@
 
 An interactive tool for **ELE204 Control Systems** at Western Norway University of Applied Sciences (HVL). Students can see how the poles and zeros of a transfer function shape its step response and Bode diagram. You can drag a pole or zero and the plots update immediately.
 
-**Open the explorer:** https://ilkermeric.github.io/ele204/
+**Open the explorer:** https://ilkermeric.github.io/controlsys/
 
 It runs entirely in the web browser, so there is nothing to install and no account to create. It works on laptops, tablets and phones, and keeps working offline once the page has loaded.
 
