@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="nb">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Pole–Zero Explorer</title>
-<meta name="description" content="Interactive pole–zero, step-response and Bode explorer for ELE204 Control Systems.">
+<title>Pol- og nullpunktutforsker</title>
+<meta name="description" content="Interaktiv utforsker for poler, nullpunkter, sprangrespons og Bodediagram i ELE204 Reguleringsteknikk.">
 <style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <style>
 /* Layout: bench instrument — a control rail on the left, two linked plots (s-plane | time response) on the right, read-outs beneath */
@@ -36,12 +36,17 @@ body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
 .top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 32px}
 h1{font:600 1.6rem/1.1 var(--display);letter-spacing:.01em;margin:0;text-wrap:balance}
 .sub{margin:4px 0 0;color:var(--muted);font-size:.9rem;max-width:62ch}
+.titlerow{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap}
+.seg.lang{display:inline-grid;grid-template-columns:auto auto}
+.seg.lang button{padding:4px 11px;font-size:.78rem}
 .tf{display:flex;flex-wrap:wrap;gap:10px 28px;align-items:center;min-width:0;overflow-x:auto}
 .eq{display:flex;align-items:center;gap:8px;font-size:1rem}
 .eq .lhs{font-style:italic;white-space:nowrap}
-.frac{display:inline-flex;flex-direction:column;align-items:center;font:500 .92rem/1.45 var(--mono)}
-.frac>span{padding:0 6px;white-space:nowrap}
-.frac>span:first-child{border-bottom:1.5px solid currentColor}
+/* both rows stretch to the wider of numerator and denominator, so the fraction bar always spans the longer one */
+.frac{display:inline-flex;flex-direction:column;align-items:stretch;text-align:center;font:500 .92rem/1.45 var(--mono)}
+.frac>span{padding:0 .45em;white-space:nowrap}
+.frac>span:first-child{border-bottom:1.5px solid currentColor;padding-bottom:1px}
+.frac>span:last-child{padding-top:1px}
 .frac sup{font-size:.7em;line-height:0}
 .eq .note{color:var(--muted);font:500 .85rem var(--mono);white-space:nowrap}
 
@@ -64,7 +69,8 @@ button.primary{background:var(--pz);border-color:var(--pz);color:var(--on-accent
 button.small{padding:4px 10px;font-size:.78rem}
 .row{display:flex;gap:8px;flex-wrap:wrap}.row>button{flex:1}
 .seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--bg)}
-.seg.four{grid-template-columns:repeat(4,1fr)}
+.seg.four{grid-template-columns:repeat(4,auto)}
+.seg.four button{white-space:nowrap;padding-inline:6px}
 .seg button{border:0;border-radius:0;background:transparent;padding:7px 4px;font-size:.8rem;line-height:1.25}
 .seg button+button{border-left:1px solid var(--line)}
 .seg button[aria-checked="true"]{background:var(--pz);color:var(--on-accent)}
@@ -130,108 +136,276 @@ td.rhp{color:var(--bad)}
 <div class="app">
   <header class="top">
     <div>
-      <h1>Pole–Zero Explorer</h1>
-      <p class="sub">Enter a transfer function, then drag its poles and zeros in the s-plane and watch the step response and Bode diagram change.</p>
+      <div class="titlerow">
+        <h1 data-i18n="title">Pol- og nullpunktutforsker</h1>
+        <div class="seg lang" role="radiogroup" id="lang" data-i18n-aria="aria.lang" aria-label="Språk">
+          <button role="radio" data-v="nb" aria-checked="true" lang="nb">Norsk</button>
+          <button role="radio" data-v="en" aria-checked="false" lang="en">English</button>
+        </div>
+      </div>
+      <p class="sub" data-i18n="sub">Skriv inn en overføringsfunksjon, dra polene og nullpunktene i s-planet, og se hvordan sprangresponsen og Bodediagrammet endrer seg.</p>
     </div>
     <div class="tf" id="tf" aria-live="polite"></div>
   </header>
 
   <main class="layout">
-    <aside class="rail" aria-label="Controls">
+    <aside class="rail" data-i18n-aria="aria.controls" aria-label="Kontroller">
       <section class="group">
-        <h2>Transfer function</h2>
-        <label class="f" for="num">Numerator N(s)</label>
+        <h2 data-i18n="h.tf">Overføringsfunksjon</h2>
+        <label class="f" for="num" data-i18n="lbl.num">Teller N(s)</label>
         <input type="text" id="num" value="4" spellcheck="false" autocomplete="off">
-        <label class="f" for="den">Denominator D(s)</label>
+        <label class="f" for="den" data-i18n="lbl.den">Nevner D(s)</label>
         <input type="text" id="den" value="s^2 + 2s" spellcheck="false" autocomplete="off">
-        <div class="row"><button id="apply" class="primary">Apply</button><button id="reset">Reset</button></div>
-        <p class="hint">Write <kbd>s^2 + 2s + 4</kbd>, <kbd>(s+1)(s+3)</kbd>, <kbd>10(s+0.5)^2</kbd> or coefficients <kbd>1 2 4</kbd>. Press Enter to apply.</p>
-        <label class="f" for="preset">Example systems</label>
+        <div class="row"><button id="apply" class="primary" data-i18n="btn.apply">Bruk</button><button id="reset" data-i18n="btn.reset">Tilbakestill</button></div>
+        <p class="hint" data-i18n-html="hint.input"></p>
+        <label class="f" for="preset" data-i18n="lbl.preset">Eksempelsystemer</label>
         <select id="preset"></select>
       </section>
 
       <section class="group">
-        <h2>The entered function is</h2>
-        <div class="seg" role="radiogroup" aria-label="Interpretation of the entered transfer function" id="mode">
-          <button role="radio" data-v="open" aria-checked="true">Open loop G(s)</button>
-          <button role="radio" data-v="closed" aria-checked="false">Closed loop T(s)</button>
+        <h2 data-i18n="h.mode">Den inntastede funksjonen er</h2>
+        <div class="seg" role="radiogroup" data-i18n-aria="aria.mode" aria-label="Tolkning av den inntastede overføringsfunksjonen" id="mode">
+          <button role="radio" data-v="open" aria-checked="true" data-i18n="mode.open">Åpen sløyfe G(s)</button>
+          <button role="radio" data-v="closed" aria-checked="false" data-i18n="mode.closed">Lukket sløyfe T(s)</button>
         </div>
         <p class="hint" id="modeHint"></p>
       </section>
 
       <section class="group" id="gainGroup">
-        <h2>Loop gain K</h2>
+        <h2 data-i18n="h.gain">Sløyfeforsterkning K</h2>
         <div class="krow">
-          <input type="range" id="kslider" min="-3" max="3" step="0.005" value="0" aria-label="Loop gain K, logarithmic slider">
-          <input type="number" id="knum" min="0" step="any" value="1" aria-label="Loop gain K">
+          <input type="range" id="kslider" min="-3" max="3" step="0.005" value="0" data-i18n-aria="aria.kslider" aria-label="Sløyfeforsterkning K, logaritmisk glidebryter">
+          <input type="number" id="knum" min="0" step="any" value="1" data-i18n-aria="aria.knum" aria-label="Sløyfeforsterkning K">
         </div>
-        <p class="hint">Slider is logarithmic, 0.001 to 1000.</p>
+        <p class="hint" data-i18n="hint.k">Glidebryteren er logaritmisk, fra 0.001 til 1000.</p>
       </section>
 
       <section class="group">
-        <h2>Edit tool</h2>
-        <div class="seg four" role="radiogroup" aria-label="Edit tool" id="tool">
-          <button role="radio" data-v="move" aria-checked="true">Move</button>
-          <button role="radio" data-v="pole" aria-checked="false">+ Pole</button>
-          <button role="radio" data-v="zero" aria-checked="false">+ Zero</button>
-          <button role="radio" data-v="delete" aria-checked="false">Delete</button>
+        <h2 data-i18n="h.tool">Redigeringsverktøy</h2>
+        <div class="seg four" role="radiogroup" data-i18n-aria="aria.tool" aria-label="Redigeringsverktøy" id="tool">
+          <button role="radio" data-v="move" aria-checked="true" data-i18n="tool.move">Flytt</button>
+          <button role="radio" data-v="pole" aria-checked="false" data-i18n="tool.pole">+ Pol</button>
+          <button role="radio" data-v="zero" aria-checked="false" data-i18n="tool.zero">+ Nullpunkt</button>
+          <button role="radio" data-v="delete" aria-checked="false" data-i18n="tool.delete">Slett</button>
         </div>
-        <p class="hint">Over the s-plane: <kbd>x</kbd> adds a pole, <kbd>o</kbd> a zero, <kbd>d</kbd> or right-click deletes. Complex pairs move together. Drop a pair on the real axis to split it; drag one of two coincident real roots up or down to make a pair. Scroll to zoom, drag empty space to pan.</p>
+        <p class="hint" data-i18n-html="hint.tool"></p>
       </section>
 
       <section class="group">
-        <h2>Display</h2>
-        <label class="check"><input type="checkbox" id="cGrid" checked><span>ζ and ω<sub>n</sub> grid</span></label>
-        <label class="check"><input type="checkbox" id="cOL"> Open-loop step of K·G(s)</label>
+        <h2 data-i18n="h.display">Visning</h2>
+        <label class="check"><input type="checkbox" id="cGrid" checked><span data-i18n-html="chk.grid">ζ- og ω<sub>n</sub>-rutenett</span></label>
+        <label class="check"><input type="checkbox" id="cOL"><span data-i18n="chk.ol">Sprangrespons for K·G(s) i åpen sløyfe</span></label>
       </section>
 
       <section class="group">
-        <h2>Compare</h2>
-        <div class="row"><button id="freeze">Freeze reference</button><button id="clear">Clear</button></div>
-        <label class="check"><input type="checkbox" id="cDC"> Lock DC gain while editing</label>
-        <label class="check"><input type="checkbox" id="cAxes"> Lock step-plot axes</label>
+        <h2 data-i18n="h.compare">Sammenlign</h2>
+        <div class="row"><button id="freeze" data-i18n="btn.freeze">Frys referanse</button><button id="clear" data-i18n="btn.clear">Fjern</button></div>
+        <label class="check"><input type="checkbox" id="cDC"><span data-i18n="chk.dc">Lås DC-forsterkningen under redigering</span></label>
+        <label class="check"><input type="checkbox" id="cAxes"><span data-i18n="chk.axes">Lås aksene i sprangresponsplottet</span></label>
       </section>
     </aside>
 
     <div class="work">
       <div class="plots">
         <figure class="plot">
-          <div class="cap"><span><b id="pzTitle">Poles and zeros of G(s)</b><span class="unit">s-plane, rad/s</span></span>
-            <button id="fit" class="small">Fit view</button></div>
-          <div class="cw"><canvas id="pz" tabindex="0" aria-label="s-plane with draggable poles and zeros"></canvas></div>
+          <div class="cap"><span><b id="pzTitle"></b><span class="unit" data-i18n="unit.pz">s-planet, rad/s</span></span>
+            <button id="fit" class="small" data-i18n="btn.fit">Tilpass visning</button></div>
+          <div class="cw"><canvas id="pz" tabindex="0" data-i18n-aria="aria.pz" aria-label="s-planet med flyttbare poler og nullpunkter"></canvas></div>
           <div class="legend" id="pzLegend"></div>
         </figure>
         <figure class="plot">
-          <div class="cap"><span><b id="stTitle">Unit-step response</b><span class="unit">y(t) vs t in s</span></span></div>
-          <div class="cw"><canvas id="st" aria-label="Unit-step response plot"></canvas></div>
+          <div class="cap"><span><b id="stTitle"></b><span class="unit" data-i18n="unit.st">y(t) mot t i s</span></span></div>
+          <div class="cw"><canvas id="st" data-i18n-aria="aria.st" aria-label="Plott av sprangresponsen"></canvas></div>
           <div class="legend" id="stLegend"></div>
         </figure>
       </div>
       <figure class="plot">
-        <div class="cap"><span><b id="bdTitle">Bode diagram</b><span class="unit">ω in rad/s</span></span>
+        <div class="cap"><span><b id="bdTitle"></b><span class="unit" data-i18n="unit.bd">ω i rad/s</span></span>
           <div class="bctl">
-            <div class="seg" role="radiogroup" aria-label="Transfer function shown in the Bode diagram" id="bodeOf">
-              <button role="radio" data-v="loop" aria-checked="true">Loop K·G(s)</button>
-              <button role="radio" data-v="cl" aria-checked="false">Closed loop T(s)</button>
+            <div class="seg" role="radiogroup" data-i18n-aria="aria.bodeOf" aria-label="Overføringsfunksjon vist i Bodediagrammet" id="bodeOf">
+              <button role="radio" data-v="loop" aria-checked="true" data-i18n="bode.loop">Sløyfe K·G(s)</button>
+              <button role="radio" data-v="cl" aria-checked="false" data-i18n="bode.cl">Lukket sløyfe T(s)</button>
             </div>
-            <label class="check"><input type="checkbox" id="cAsym"><span>Asymptotes</span></label>
+            <label class="check"><input type="checkbox" id="cAsym"><span data-i18n="chk.asym">Asymptoter</span></label>
           </div>
         </div>
-        <div class="cw bode"><canvas id="bd" aria-label="Bode magnitude and phase plots"></canvas></div>
+        <div class="cw bode"><canvas id="bd" data-i18n-aria="aria.bd" aria-label="Bodediagram med amplitude og fase"></canvas></div>
         <div class="legend" id="bdLegend"></div>
       </figure>
       <p class="status" id="status" role="status"></p>
       <div class="readouts">
         <section class="card" id="metrics"></section>
-        <section class="card"><h3>Poles and zeros</h3><div class="tw"><table id="roots"></table></div></section>
+        <section class="card"><h3 data-i18n="h.roots">Poler og nullpunkter</h3><div class="tw"><table id="roots"></table></div></section>
       </div>
-      <p class="foot">Open-loop mode closes the loop with unity negative feedback, T(s) = K·G(s) / (1 + K·G(s)). Step responses are computed exactly with a zero-order-hold discretisation of the state-space model. Bode asymptotes are the textbook straight-line approximations: the magnitude slope changes by ±20 dB/decade at each real corner frequency and ±40 dB/decade at each complex pair (at ω<sub>n</sub>); the phase steps at each corner frequency, by ±90° for a real root and ±180° for a complex pair.</p>
+      <p class="foot" data-i18n-html="foot"></p>
     </div>
   </main>
 </div>
 
 <script>
 "use strict";
+/* ======================================================================= language
+   Every visible text lives here. Norwegian (Bokmål) is the default; English is the alternative.
+   {name} placeholders are filled in by tr(key, { name: value }). */
+const I18N = {
+  nb: {
+    "title": "Pol- og nullpunktutforsker",
+    "sub": "Skriv inn en overføringsfunksjon, dra polene og nullpunktene i s-planet, og se hvordan sprangresponsen og Bodediagrammet endrer seg.",
+    "aria.lang": "Språk", "aria.controls": "Kontroller",
+    "h.tf": "Overføringsfunksjon", "lbl.num": "Teller N(s)", "lbl.den": "Nevner D(s)", "lbl.numShort": "Teller", "lbl.denShort": "Nevner",
+    "btn.apply": "Bruk", "btn.reset": "Tilbakestill",
+    "hint.input": "Skriv <kbd>s^2 + 2s + 4</kbd>, <kbd>(s+1)(s+3)</kbd>, <kbd>10(s+0.5)^2</kbd> eller koeffisienter <kbd>1 2 4</kbd>. Bruk punktum som desimaltegn. Trykk Enter eller Bruk.",
+    "lbl.preset": "Eksempelsystemer", "preset.choose": "Velg et eksempel …",
+    "h.mode": "Den inntastede funksjonen er", "aria.mode": "Tolkning av den inntastede overføringsfunksjonen",
+    "mode.open": "Åpen sløyfe G(s)", "mode.closed": "Lukket sløyfe T(s)",
+    "modeHint.open": "Sløyfen lukkes med negativ enhetstilbakekobling: T = KG / (1 + KG).",
+    "modeHint.closed": "Sprangresponsen til den inntastede T(s) vises direkte.",
+    "h.gain": "Sløyfeforsterkning K", "aria.kslider": "Sløyfeforsterkning K, logaritmisk glidebryter", "aria.knum": "Sløyfeforsterkning K",
+    "hint.k": "Glidebryteren er logaritmisk, fra 0.001 til 1000.",
+    "h.tool": "Redigeringsverktøy", "aria.tool": "Redigeringsverktøy",
+    "tool.move": "Flytt", "tool.pole": "+ Pol", "tool.zero": "+ Nullpunkt", "tool.delete": "Slett",
+    "hint.tool": "Over s-planet: <kbd>x</kbd> legger til en pol, <kbd>o</kbd> et nullpunkt, <kbd>d</kbd> eller høyreklikk sletter. Komplekse par flyttes sammen. Slipp et par på den reelle aksen for å dele det i to; dra én av to sammenfallende reelle røtter opp eller ned for å lage et par. Rull for å zoome, dra i et tomt område for å panorere.",
+    "h.display": "Visning", "chk.grid": "ζ- og ω<sub>n</sub>-rutenett", "chk.ol": "Sprangrespons for K·G(s) i åpen sløyfe",
+    "h.compare": "Sammenlign", "btn.freeze": "Frys referanse", "btn.clear": "Fjern",
+    "chk.dc": "Lås DC-forsterkningen under redigering", "chk.axes": "Lås aksene i sprangresponsplottet",
+    "unit.pz": "s-planet, rad/s", "btn.fit": "Tilpass visning", "aria.pz": "s-planet med flyttbare poler og nullpunkter",
+    "unit.st": "y(t) mot t i s", "aria.st": "Plott av sprangresponsen",
+    "unit.bd": "ω i rad/s", "aria.bodeOf": "Overføringsfunksjon vist i Bodediagrammet",
+    "bode.loop": "Sløyfe K·G(s)", "bode.cl": "Lukket sløyfe T(s)", "chk.asym": "Asymptoter", "aria.bd": "Bodediagram med amplitude og fase",
+    "h.roots": "Poler og nullpunkter",
+    "foot": "I modusen åpen sløyfe lukkes sløyfen med negativ enhetstilbakekobling, T(s) = K·G(s) / (1 + K·G(s)). Sprangresponsen beregnes eksakt med en nullteordens holdeelement-diskretisering (ZOH) av tilstandsrommodellen. Bode-asymptotene er de vanlige rettlinjede tilnærmingene: amplitudens stigningstall endres med ±20 dB/dekade ved hver reell knekkfrekvens og med ±40 dB/dekade ved hvert komplekst par (ved ω<sub>n</sub>); fasen gjør et sprang ved hver knekkfrekvens, på ±90° for en reell rot og ±180° for et komplekst par.",
+    "pzTitle": "Poler og nullpunkter for {H}(s)",
+    "stTitle.open": "Sprangrespons for den lukkede sløyfen", "stTitle.closed": "Sprangrespons for T(s)",
+    "bdTitle.loop": "Bodediagram for sløyfen K·G(jω)", "bdTitle.cl": "Bodediagram for T(jω)", "bdTitle": "Bodediagram",
+    "lg.poles": "poler for {H}(s)", "lg.zeros": "nullpunkter for {H}(s)", "lg.cl": "poler i lukket sløyfe (K = {K})", "lg.ref": "referanse",
+    "lg.input": "inngang u(t) = 1", "lg.band": "sluttverdi ± 2 %", "lg.peak": "toppunkt", "lg.ts": "innsvingningstid",
+    "lg.ol": "sprangrespons for K·G(s) i åpen sløyfe", "lg.exact": "eksakt", "lg.asym": "rettlinjede asymptoter",
+    "lg.corners": "knekkfrekvenser", "lg.margins": "forsterknings- og fasemargin",
+    "m.title": "Nøkkeltall for sprangresponsen", "m.noResp": "Ingen respons: rett opp overføringsfunksjonen først.",
+    "stab.stable": "Stabil", "stab.marginal": "Marginalt stabil", "stab.unstable": "Ustabil",
+    "m.final": "Sluttverdi y(∞)", "m.ess": "Stasjonært avvik", "m.os": "Oversving", "m.tp": "Topptid",
+    "m.tr": "Stigetid 10–90 %", "m.ts": "Innsvingningstid 2 %", "m.us": "Undersving",
+    "m.unstable": "En pol ligger i høyre halvplan, så responsen vokser uten grense.",
+    "m.marginal": "Poler på den imaginære aksen: responsen svinger seg ikke inn.",
+    "mg.title": "Stabilitetsmarginer for", "mg.gm": "Forsterkningsmargin", "mg.pm": "Fasemargin",
+    "mg.gmVal": "{v} dB ved {w} rad/s", "mg.pmVal": "{v}° ved {w} rad/s",
+    "mg.gmNone": "∞ (fasen når aldri −180°)", "mg.pmNone": "ingen (|K·G| krysser aldri 0 dB)",
+    "mg.olUnstable": "Den åpne sløyfen har poler i høyre halvplan, så disse marginene avgjør ikke stabiliteten til den lukkede sløyfen. Bruk Nyquist-kriteriet, eller les stabiliteten av polene i lukket sløyfe.",
+    "tbl.loc": "Plassering", "tbl.poles": "Poler for {H}(s)", "tbl.zeros": "Nullpunkter for {H}(s)", "tbl.cl": "Poler i lukket sløyfe", "tbl.none": "ingen",
+    "cv.unstable": "ustabilt", "cv.noResp": "Ingen respons å vise", "cv.noFreq": "Ingen frekvensrespons å vise",
+    "cv.mag": "Amplitude (dB)", "cv.phase": "Fase (°)", "cv.pm": "Fasemargin {v}°", "cv.gm": "Forsterkningsmargin {v} dB",
+    "s.applied": "{H}(s) er oppdatert.", "s.reset": "Tilbake til den sist brukte overføringsfunksjonen.",
+    "s.improper": "Telleren har høyere grad enn nevneren. Overføringsfunksjonen må være egentlig (proper): ikke flere nullpunkter enn poler.",
+    "s.zeroImproper": "Det nullpunktet ville gitt flere nullpunkter enn poler. Legg til en pol først.",
+    "s.poleImproper": "Uten den polen blir det flere nullpunkter enn poler. Slett et nullpunkt først.",
+    "s.addRealP": "La til en reell pol i {x}.", "s.addRealZ": "La til et reelt nullpunkt i {x}.",
+    "s.addPairP": "La til et komplekst polpar i {x} ± j{y}.", "s.addPairZ": "La til et komplekst nullpunktpar i {x} ± j{y}.",
+    "s.delP": "Slettet en pol.", "s.delZ": "Slettet et nullpunkt.", "s.delPairP": "Slettet et komplekst polpar.", "s.delPairZ": "Slettet et komplekst nullpunktpar.",
+    "s.clickDelete": "Klikk på en pol eller et nullpunkt for å slette det.",
+    "s.dcNoLock": "DC-forsterkningen er uendelig eller null (en pol eller et nullpunkt i s = 0), så den kan ikke låses.",
+    "s.dcLocked": "DC-forsterkningen er låst til {v}.",
+    "s.joined": "To sammenfallende reelle røtter ble til et komplekskonjugert par.",
+    "s.splitP": "Paret havnet på den reelle aksen og ble delt i to reelle poler.",
+    "s.splitZ": "Paret havnet på den reelle aksen og ble delt i to reelle nullpunkter.",
+    "s.kPositive": "K må være et positivt tall.",
+    "s.frozen": "Referansen er frosset i grått. Flytt nå poler eller nullpunkter for å sammenligne.", "s.cleared": "Referansen er fjernet.",
+    "e.char": "uventet tegn «{ch}» (bare s, tall og + − * / ^ ( ) er tillatt)",
+    "e.comma": "bruk punktum som desimaltegn (skriv 0.5, ikke 0,5)",
+    "e.divPoly": "deling med et polynom er ikke tillatt; skriv inn teller og nevner hver for seg",
+    "e.divZero": "deling med null", "e.exp": "eksponenter må være heltall fra 0 til 60",
+    "e.early": "uttrykket slutter for tidlig", "e.bracket": "en avsluttende parentes mangler", "e.token": "uventet «{tok}»",
+    "e.empty": "feltet er tomt", "e.complex": "koeffisientene er komplekse; komplekse røtter må komme i konjugerte par",
+    "e.zero": "polynomet er null", "e.singular": "singulær matrise",
+    "e.illposed": "1 + K·G(s) er identisk null, så den lukkede sløyfen er ikke veldefinert.",
+    "e.clImproper": "Den lukkede sløyfen er ikke egentlig (proper) fordi 1 + K·k = 0. Endre K eller forsterkningen i G(s).",
+    "e.step": "Kunne ikke beregne sprangresponsen: {msg}",
+    "p.type1": "Type 1-prosess", "p.three": "Tre reelle poler", "p.zero": "Prosess med et nullpunkt", "p.unstable": "Ustabil prosess",
+    "p.light": "Svakt dempet", "p.xzero": "Ekstra nullpunkt", "p.xpole": "Ekstra pol", "p.nmp": "Ikke-minimumfase",
+  },
+  en: {
+    "title": "Pole–Zero Explorer",
+    "sub": "Enter a transfer function, then drag its poles and zeros in the s-plane and watch the step response and Bode diagram change.",
+    "aria.lang": "Language", "aria.controls": "Controls",
+    "h.tf": "Transfer function", "lbl.num": "Numerator N(s)", "lbl.den": "Denominator D(s)", "lbl.numShort": "Numerator", "lbl.denShort": "Denominator",
+    "btn.apply": "Apply", "btn.reset": "Reset",
+    "hint.input": "Write <kbd>s^2 + 2s + 4</kbd>, <kbd>(s+1)(s+3)</kbd>, <kbd>10(s+0.5)^2</kbd> or coefficients <kbd>1 2 4</kbd>. Use a decimal point. Press Enter or Apply.",
+    "lbl.preset": "Example systems", "preset.choose": "Choose an example…",
+    "h.mode": "The entered function is", "aria.mode": "Interpretation of the entered transfer function",
+    "mode.open": "Open loop G(s)", "mode.closed": "Closed loop T(s)",
+    "modeHint.open": "The loop is closed with unity negative feedback: T = KG / (1 + KG).",
+    "modeHint.closed": "The step response of the entered T(s) is shown directly.",
+    "h.gain": "Loop gain K", "aria.kslider": "Loop gain K, logarithmic slider", "aria.knum": "Loop gain K",
+    "hint.k": "Slider is logarithmic, 0.001 to 1000.",
+    "h.tool": "Edit tool", "aria.tool": "Edit tool",
+    "tool.move": "Move", "tool.pole": "+ Pole", "tool.zero": "+ Zero", "tool.delete": "Delete",
+    "hint.tool": "Over the s-plane: <kbd>x</kbd> adds a pole, <kbd>o</kbd> a zero, <kbd>d</kbd> or right-click deletes. Complex pairs move together. Drop a pair on the real axis to split it; drag one of two coincident real roots up or down to make a pair. Scroll to zoom, drag empty space to pan.",
+    "h.display": "Display", "chk.grid": "ζ and ω<sub>n</sub> grid", "chk.ol": "Open-loop step of K·G(s)",
+    "h.compare": "Compare", "btn.freeze": "Freeze reference", "btn.clear": "Clear",
+    "chk.dc": "Lock DC gain while editing", "chk.axes": "Lock step-plot axes",
+    "unit.pz": "s-plane, rad/s", "btn.fit": "Fit view", "aria.pz": "s-plane with draggable poles and zeros",
+    "unit.st": "y(t) vs t in s", "aria.st": "Unit-step response plot",
+    "unit.bd": "ω in rad/s", "aria.bodeOf": "Transfer function shown in the Bode diagram",
+    "bode.loop": "Loop K·G(s)", "bode.cl": "Closed loop T(s)", "chk.asym": "Asymptotes", "aria.bd": "Bode magnitude and phase plots",
+    "h.roots": "Poles and zeros",
+    "foot": "Open-loop mode closes the loop with unity negative feedback, T(s) = K·G(s) / (1 + K·G(s)). Step responses are computed exactly with a zero-order-hold discretisation of the state-space model. Bode asymptotes are the textbook straight-line approximations: the magnitude slope changes by ±20 dB/decade at each real corner frequency and ±40 dB/decade at each complex pair (at ω<sub>n</sub>); the phase steps at each corner frequency, by ±90° for a real root and ±180° for a complex pair.",
+    "pzTitle": "Poles and zeros of {H}(s)",
+    "stTitle.open": "Unit-step response of the closed loop", "stTitle.closed": "Unit-step response of T(s)",
+    "bdTitle.loop": "Bode diagram of the loop K·G(jω)", "bdTitle.cl": "Bode diagram of T(jω)", "bdTitle": "Bode diagram",
+    "lg.poles": "poles of {H}(s)", "lg.zeros": "zeros of {H}(s)", "lg.cl": "closed-loop poles (K = {K})", "lg.ref": "reference",
+    "lg.input": "input u(t) = 1", "lg.band": "final value ± 2 %", "lg.peak": "peak", "lg.ts": "settling time",
+    "lg.ol": "open-loop step of K·G(s)", "lg.exact": "exact", "lg.asym": "straight-line asymptotes",
+    "lg.corners": "corner frequencies", "lg.margins": "gain and phase margins",
+    "m.title": "Step-response metrics", "m.noResp": "No response: fix the transfer function first.",
+    "stab.stable": "Stable", "stab.marginal": "Marginally stable", "stab.unstable": "Unstable",
+    "m.final": "Final value y(∞)", "m.ess": "Steady-state error", "m.os": "Overshoot", "m.tp": "Peak time",
+    "m.tr": "Rise time 10–90 %", "m.ts": "Settling time 2 %", "m.us": "Undershoot",
+    "m.unstable": "A pole is in the right half-plane, so the response grows without bound.",
+    "m.marginal": "Poles on the imaginary axis: the response does not settle.",
+    "mg.title": "Stability margins of", "mg.gm": "Gain margin", "mg.pm": "Phase margin",
+    "mg.gmVal": "{v} dB at {w} rad/s", "mg.pmVal": "{v}° at {w} rad/s",
+    "mg.gmNone": "∞ (phase never reaches −180°)", "mg.pmNone": "none (|K·G| never crosses 0 dB)",
+    "mg.olUnstable": "The open loop has right-half-plane poles, so these margins do not decide closed-loop stability. Use the Nyquist criterion, or read stability from the closed-loop poles.",
+    "tbl.loc": "Location", "tbl.poles": "Poles of {H}(s)", "tbl.zeros": "Zeros of {H}(s)", "tbl.cl": "Closed-loop poles", "tbl.none": "none",
+    "cv.unstable": "unstable", "cv.noResp": "No response to show", "cv.noFreq": "No frequency response to show",
+    "cv.mag": "Magnitude (dB)", "cv.phase": "Phase (°)", "cv.pm": "PM {v}°", "cv.gm": "GM {v} dB",
+    "s.applied": "Applied {H}(s).", "s.reset": "Back to the last applied transfer function.",
+    "s.improper": "The numerator has a higher degree than the denominator. Enter a proper transfer function (no more zeros than poles).",
+    "s.zeroImproper": "That zero would give more zeros than poles. Add a pole first.",
+    "s.poleImproper": "Deleting that pole would leave more zeros than poles. Delete a zero first.",
+    "s.addRealP": "Added a real pole at {x}.", "s.addRealZ": "Added a real zero at {x}.",
+    "s.addPairP": "Added a complex pair of poles at {x} ± j{y}.", "s.addPairZ": "Added a complex pair of zeros at {x} ± j{y}.",
+    "s.delP": "Deleted a pole.", "s.delZ": "Deleted a zero.", "s.delPairP": "Deleted a complex pair of poles.", "s.delPairZ": "Deleted a complex pair of zeros.",
+    "s.clickDelete": "Click a pole or zero to delete it.",
+    "s.dcNoLock": "The DC gain is infinite or zero (a pole or zero at s = 0), so it cannot be locked.",
+    "s.dcLocked": "DC gain locked at {v}.",
+    "s.joined": "Two coincident real roots became a complex-conjugate pair.",
+    "s.splitP": "The pair landed on the real axis and split into two real poles.",
+    "s.splitZ": "The pair landed on the real axis and split into two real zeros.",
+    "s.kPositive": "K must be a positive number.",
+    "s.frozen": "Reference frozen in grey. Now move poles or zeros to compare.", "s.cleared": "Reference cleared.",
+    "e.char": "unexpected character “{ch}” (only s, numbers and + − * / ^ ( ) are allowed)",
+    "e.comma": "use a decimal point (write 0.5, not 0,5)",
+    "e.divPoly": "dividing by a polynomial is not allowed; enter the numerator and denominator separately",
+    "e.divZero": "division by zero", "e.exp": "exponents must be whole numbers from 0 to 60",
+    "e.early": "the expression ends too early", "e.bracket": "a closing bracket is missing", "e.token": "unexpected “{tok}”",
+    "e.empty": "the field is empty", "e.complex": "the coefficients are complex; complex roots must come in conjugate pairs",
+    "e.zero": "the polynomial is zero", "e.singular": "singular matrix",
+    "e.illposed": "1 + K·G(s) is identically zero, so the closed loop is ill-posed.",
+    "e.clImproper": "The closed loop is improper because 1 + K·k = 0. Change K or the gain of G(s).",
+    "e.step": "Could not compute the step response: {msg}",
+    "p.type1": "Type-1 plant", "p.three": "Three real poles", "p.zero": "Plant with a zero", "p.unstable": "Unstable plant",
+    "p.light": "Lightly damped", "p.xzero": "Extra zero", "p.xpole": "Extra pole", "p.nmp": "Non-minimum phase",
+  },
+};
+let LANG = "nb";
+function tr(key, p) {
+  let s = I18N[LANG][key] ?? I18N.en[key] ?? key;
+  if (p) s = s.replace(/\{(\w+)\}/g, (m, k) => (p[k] ?? m));
+  return s;
+}
+class LErr extends Error { constructor(key, params) { super(key); this.key = key; this.params = params; } }
+const errText = e => (e && e.key) ? tr(e.key, e.params) : String((e && e.message) || e);
+
 /* ======================================================================= polynomials
    Real polynomials are arrays of coefficients, highest power first (like numpy). */
 const trimP = c => { const m = Math.max(...c.map(Math.abs)); if (!(m > 0)) return null;
@@ -256,8 +430,9 @@ function tokenize(str) {
       continue; }
     if (ch === "s") { toks.push({ t: "s" }); i++; continue; }
     if (ch === "j" || ch === "i") { toks.push({ t: "num", v: [0, 1] }); i++; continue; }
+    if (ch === ",") throw new LErr("e.comma");
     if ("+-*/^()[]".includes(ch)) { toks.push({ t: ch === "[" ? "(" : ch === "]" ? ")" : ch }); i++; continue; }
-    throw new Error(`unexpected character “${ch}” (only s, numbers and + − * / ^ ( ) are allowed)`);
+    throw new LErr("e.char", { ch });
   }
   return toks;
 }
@@ -277,8 +452,8 @@ function parseExpr(str) {
     for (;;) { const p = peek(); if (!p) break;
       if (p.t === "*") { take(); v = pMul(v, unary()); }
       else if (p.t === "/") { take(); const d = unary();
-        if (d.length > 1 && d.slice(1).some(c => c[0] || c[1])) throw new Error("dividing by a polynomial is not allowed; enter the numerator and denominator separately");
-        if (!d[0][0] && !d[0][1]) throw new Error("division by zero"); v = pScale(v, cdiv([1, 0], d[0])); }
+        if (d.length > 1 && d.slice(1).some(c => c[0] || c[1])) throw new LErr("e.divPoly");
+        if (!d[0][0] && !d[0][1]) throw new LErr("e.divZero"); v = pScale(v, cdiv([1, 0], d[0])); }
       else if (p.t === "num" || p.t === "s" || p.t === "(") v = pMul(v, power());   // implicit multiplication
       else break; }
     return v; }
@@ -288,20 +463,20 @@ function parseExpr(str) {
   function power() { let b = atom();
     if (peek() && peek().t === "^") { take(); if (peek() && peek().t === "+") take();
       const e = take();
-      if (!e || e.t !== "num" || e.v[1] !== 0 || !Number.isInteger(e.v[0]) || e.v[0] > 60) throw new Error("exponents must be whole numbers from 0 to 60");
+      if (!e || e.t !== "num" || e.v[1] !== 0 || !Number.isInteger(e.v[0]) || e.v[0] > 60) throw new LErr("e.exp");
       let r = [[1, 0]]; for (let i = 0; i < e.v[0]; i++) r = pMul(r, b); b = r; }
     return b; }
   function atom() { const p = take();
-    if (!p) throw new Error("the expression ends too early");
+    if (!p) throw new LErr("e.early");
     if (p.t === "num") return [p.v];
     if (p.t === "s") return [[0, 0], [1, 0]];
-    if (p.t === "(") { const v = expr(); const q = take(); if (!q || q.t !== ")") throw new Error("a closing bracket is missing"); return v; }
-    throw new Error(`unexpected “${p.t}”`); }
-  const v = expr(); if (k < toks.length) throw new Error(`unexpected “${toks[k].t}”`);
+    if (p.t === "(") { const v = expr(); const q = take(); if (!q || q.t !== ")") throw new LErr("e.bracket"); return v; }
+    throw new LErr("e.token", { tok: p.t }); }
+  const v = expr(); if (k < toks.length) throw new LErr("e.token", { tok: toks[k].t });
   return v;
 }
 function parsePoly(text) {
-  const t = text.trim(); if (!t) throw new Error("the field is empty");
+  const t = text.trim(); if (!t) throw new LErr("e.empty");
   let desc = null;
   if (!/s/.test(t)) {
     const parts = t.replace(/^[\[(]|[\])]$/g, "").split(/[\s,;]+/).filter(Boolean);
@@ -311,10 +486,10 @@ function parsePoly(text) {
   if (!desc) {
     const asc = parseExpr(t);
     const mx = Math.max(...asc.map(c => Math.hypot(c[0], c[1])));
-    if (asc.some(c => Math.abs(c[1]) > 1e-9 * Math.max(1, mx))) throw new Error("the coefficients are complex; complex roots must come in conjugate pairs");
+    if (asc.some(c => Math.abs(c[1]) > 1e-9 * Math.max(1, mx))) throw new LErr("e.complex");
     desc = asc.map(c => c[0]).reverse();
   }
-  const r = trimP(desc); if (!r || r.every(x => x === 0)) throw new Error("the polynomial is zero");
+  const r = trimP(desc); if (!r || r.every(x => x === 0)) throw new LErr("e.zero");
   return r;
 }
 
@@ -371,7 +546,7 @@ function solve(A, B) { const n = A.length, m = B[0].length;
   for (let col = 0; col < n; col++) {
     let piv = col, best = Math.abs(M[col][col]);
     for (let r = col + 1; r < n; r++) if (Math.abs(M[r][col]) > best) { best = Math.abs(M[r][col]); piv = r; }
-    if (best === 0) throw new Error("singular matrix");
+    if (best === 0) throw new LErr("e.singular");
     [M[col], M[piv]] = [M[piv], M[col]]; [R[col], R[piv]] = [R[piv], R[col]];
     for (let r = col + 1; r < n; r++) { const f = M[r][col] / M[col][col]; if (f === 0) continue;
       for (let c = col; c < n; c++) M[r][c] -= f * M[col][c];
@@ -470,14 +645,14 @@ const minus = s => s.replace(/-/g, "−");
 
 /* ======================================================================= state */
 const PRESETS = [
-  { name: "Type-1 plant  4 / s(s+2)", num: "4", den: "s(s+2)", mode: "open", K: 1 },
-  { name: "Three real poles  10 / (s+1)(s+2)(s+5)", num: "10", den: "(s+1)(s+2)(s+5)", mode: "open", K: 1 },
-  { name: "Plant with a zero  (s+3) / s(s+1)(s+5)", num: "s + 3", den: "s(s+1)(s+5)", mode: "open", K: 5 },
-  { name: "Unstable plant  1 / (s−1)(s+4)", num: "1", den: "(s-1)(s+4)", mode: "open", K: 8 },
-  { name: "Lightly damped  T = 4 / (s²+0.8s+4)", num: "4", den: "s^2 + 0.8s + 4", mode: "closed", K: 1 },
-  { name: "Extra zero  T = (2s+4) / (s²+2s+4)", num: "2s + 4", den: "s^2 + 2s + 4", mode: "closed", K: 1 },
-  { name: "Extra pole  T = 40 / (s²+2s+4)(s+10)", num: "40", den: "(s^2 + 2s + 4)(s + 10)", mode: "closed", K: 1 },
-  { name: "Non-minimum phase  T = (2−s) / (s+1)(s+2)", num: "2 - s", den: "(s+1)(s+2)", mode: "closed", K: 1 },
+  { key: "p.type1", f: "4 / s(s+2)", num: "4", den: "s(s+2)", mode: "open", K: 1 },
+  { key: "p.three", f: "10 / (s+1)(s+2)(s+5)", num: "10", den: "(s+1)(s+2)(s+5)", mode: "open", K: 1 },
+  { key: "p.zero", f: "(s+3) / s(s+1)(s+5)", num: "s + 3", den: "s(s+1)(s+5)", mode: "open", K: 5 },
+  { key: "p.unstable", f: "1 / (s−1)(s+4)", num: "1", den: "(s-1)(s+4)", mode: "open", K: 8 },
+  { key: "p.light", f: "T = 4 / (s²+0.8s+4)", num: "4", den: "s^2 + 0.8s + 4", mode: "closed", K: 1 },
+  { key: "p.xzero", f: "T = (2s+4) / (s²+2s+4)", num: "2s + 4", den: "s^2 + 2s + 4", mode: "closed", K: 1 },
+  { key: "p.xpole", f: "T = 40 / (s²+2s+4)(s+10)", num: "40", den: "(s^2 + 2s + 4)(s + 10)", mode: "closed", K: 1 },
+  { key: "p.nmp", f: "T = (2−s) / (s+1)(s+2)", num: "2 - s", den: "(s+1)(s+2)", mode: "closed", K: 1 },
 ];
 const S = {
   items: [], k: 1, K: 1, mode: "open", tool: "move",
@@ -509,7 +684,10 @@ function applyDcLock(target) {
   S.k = target * pp / pz; }
 const clone = items => items.map(r => ({ ...r }));
 
-function setStatus(msg, kind = "") { const el = $("status"); el.textContent = msg; el.className = "status " + kind; }
+let statusFn = null, statusKind = "";
+function setStatus(msg, kind = "") { statusFn = typeof msg === "function" ? msg : () => msg; statusKind = kind; showStatus(); }
+function showStatus() { const el = $("status"); el.textContent = statusFn ? statusFn() : ""; el.className = "status " + statusKind; }
+const say = (key, p, kind = "") => setStatus(() => tr(key, p), kind);
 
 /* ======================================================================= compute */
 function compute() {
@@ -518,8 +696,8 @@ function compute() {
   if (S.mode === "open") {
     numC = scaleP(numH, S.K);
     denC = trimP(addP(denH, numC));
-    if (!denC) throw new Error("1 + K·G(s) is identically zero, so the closed loop is ill-posed.");
-    if (denC.length < numC.length) throw new Error("The closed loop is improper because 1 + K·k = 0. Change K or the gain of G(s).");
+    if (!denC) throw new LErr("e.illposed");
+    if (denC.length < numC.length) throw new LErr("e.clImproper");
   } else { numC = numH; denC = denH; }
   const pC = denC.length > 1 ? polyRoots(denC) : [];
   S.sys = { numH, denH, numC, denC, pC };
@@ -710,7 +888,7 @@ function drawPZ(c) {
   ctx.textAlign = "right"; ctx.textBaseline = "top"; ctx.fillText("Re(s)", w - 6, Math.min(Math.max(y0 + 4, 4), h - 30));
   ctx.textAlign = "left"; ctx.fillText("Im(s)", Math.min(Math.max(x0 + 5, 4), w - 40), 5);
   if (xmax > 0 && x0 < w - 70) { ctx.fillStyle = c.bad; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.8;
-    ctx.fillText("unstable", w - 6, h - 18); ctx.globalAlpha = 1; }
+    ctx.fillText(tr("cv.unstable"), w - 6, h - 18); ctx.globalAlpha = 1; }
   // reference ghosts
   if (S.ref) {
     ctx.strokeStyle = c.ref; ctx.fillStyle = c.ref; ctx.lineWidth = 1.6;
@@ -738,7 +916,7 @@ function diamond(ctx, x, y, s, fill, edge) { ctx.beginPath(); ctx.moveTo(x, y - 
 function drawStep(c) {
   const { ctx, w, h } = sizeCanvas(stCv); if (!w || !h) return;
   ctx.fillStyle = c.panel; ctx.fillRect(0, 0, w, h);
-  const st = S.step; if (!st || S.err) { ctx.fillStyle = c.muted; ctx.font = `13px ${c.body}`; ctx.textAlign = "center"; ctx.fillText("No response to show", w / 2, h / 2); return; }
+  const st = S.step; if (!st || S.err) { ctx.fillStyle = c.muted; ctx.font = `13px ${c.body}`; ctx.textAlign = "center"; ctx.fillText(tr("cv.noResp"), w / 2, h / 2); return; }
   const L = 50, R = 12, T = 10, B = 26, pw = w - L - R, ph = h - T - B;
   const { t1, y0, y1 } = st.view;
   const X = t => L + t / t1 * pw, Y = y => T + (y1 - y) / (y1 - y0) * ph;
@@ -796,7 +974,7 @@ function drawBode(c) {
   const { ctx, w, h } = sizeCanvas(bdCv); if (!w || !h) return;
   ctx.fillStyle = c.panel; ctx.fillRect(0, 0, w, h);
   const B = S.bode;
-  if (!B || S.err) { ctx.fillStyle = c.muted; ctx.font = `13px ${c.body}`; ctx.textAlign = "center"; ctx.fillText("No frequency response to show", w / 2, h / 2); return; }
+  if (!B || S.err) { ctx.fillStyle = c.muted; ctx.font = `13px ${c.body}`; ctx.textAlign = "center"; ctx.fillText(tr("cv.noFreq"), w / 2, h / 2); return; }
   const L = 62, Rm = 14, T = 10, G = 30, Bm = 26, pw = w - L - Rm, hh = h - T - Bm - G, h1 = Math.round(hh * 0.55), h2 = hh - h1;
   const tops = [T, T + h1 + G], hs = [h1, h2];
   const X = om => L + (Math.log10(om) - B.a) / (B.b - B.a) * pw;
@@ -830,7 +1008,7 @@ function drawBode(c) {
     ctx.fillStyle = c.muted; ctx.textAlign = "right"; ctx.textBaseline = "middle";
     for (const v of tk.out) ctx.fillText(k ? minus(String(v)) + "°" : fmtTick(v, tk.st), L - 6, Y(v));
     ctx.save(); ctx.translate(13, top + ph_ / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.font = `11px ${c.body}`;
-    ctx.fillText(k ? "Phase (°)" : "Magnitude (dB)", 0, 0); ctx.restore(); ctx.font = `10.5px ${c.mono}`;
+    ctx.fillText(tr(k ? "cv.phase" : "cv.mag"), 0, 0); ctx.restore(); ctx.font = `10.5px ${c.mono}`;
     // emphasised reference lines: 0 dB and −180° (+k·360°) for the loop
     ctx.save(); ctx.beginPath(); ctx.rect(L, top, pw, ph_); ctx.clip();
     ctx.strokeStyle = c.muted; ctx.lineWidth = 1.1; ctx.beginPath();
@@ -864,13 +1042,13 @@ function drawBode(c) {
     const x = X(M.pm.w), phc = logInterp(B, B.ph, M.pm.w), Y = Ys[1];
     ctx.strokeStyle = c.cl; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, Y(phc - M.pm.v)); ctx.lineTo(x, Y(phc)); ctx.stroke();
     ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x, Ys[0](0)); ctx.lineTo(x, tops[1] + h2); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
-    tag(`PM ${minus(fmtN(M.pm.v, 3))}°`, x, (Y(phc - M.pm.v) + Y(phc)) / 2, c.cl);
+    tag(tr("cv.pm", { v: minus(fmtN(M.pm.v, 3)) }), x, (Y(phc - M.pm.v) + Y(phc)) / 2, c.cl);
   }
   if (M && M.gm && inRange(M.gm.w)) {
     const x = X(M.gm.w), Y = Ys[0], mg = logInterp(B, B.mag, M.gm.w);
     ctx.strokeStyle = c.cl; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, Y(0)); ctx.lineTo(x, Y(mg)); ctx.stroke();
     ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x, Y(mg)); ctx.lineTo(x, tops[1] + h2); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
-    tag(`GM ${minus(fmtN(M.gm.v, 3))} dB`, x, (Y(0) + Y(mg)) / 2, c.cl);
+    tag(tr("cv.gm", { v: minus(fmtN(M.gm.v, 3)) }), x, (Y(0) + Y(mg)) / 2, c.cl);
   }
   // hover read-out
   if (S.bodeHover != null && S.bodeHover >= L && S.bodeHover <= L + pw) {
@@ -906,12 +1084,10 @@ const chip = (k, s) => `<span>${icon[k]}${s}</span>`;
 function frac(n, d) { return `<span class="frac"><span>${n}</span><span>${d}</span></span>`; }
 function updateDOM() {
   const H = S.mode === "open" ? "G" : "T", sys = S.sys, st = S.step;
-  $("pzTitle").textContent = `Poles and zeros of ${H}(s)`;
-  $("stTitle").textContent = S.mode === "open" ? "Unit-step response of the closed loop" : "Unit-step response of T(s)";
+  $("pzTitle").textContent = tr("pzTitle", { H });
+  $("stTitle").textContent = tr(S.mode === "open" ? "stTitle.open" : "stTitle.closed");
   $("gainGroup").hidden = S.mode !== "open";
-  $("modeHint").textContent = S.mode === "open"
-    ? "The loop is closed with unity negative feedback: T = KG / (1 + KG)."
-    : "The step response of the entered T(s) is shown directly.";
+  $("modeHint").textContent = tr(S.mode === "open" ? "modeHint.open" : "modeHint.closed");
   // transfer functions
   let tf = "";
   if (sys) {
@@ -920,47 +1096,47 @@ function updateDOM() {
   }
   $("tf").innerHTML = tf;
   // legends
-  let lg = chip("pole", `poles of ${H}(s)`) + chip("zero", `zeros of ${H}(s)`);
-  if (S.mode === "open") lg += chip("cl", `closed-loop poles (K = ${fmtN(S.K, 3)})`);
-  if (S.ref) lg += chip("ref", "reference");
+  let lg = chip("pole", tr("lg.poles", { H })) + chip("zero", tr("lg.zeros", { H }));
+  if (S.mode === "open") lg += chip("cl", tr("lg.cl", { K: fmtN(S.K, 3) }));
+  if (S.ref) lg += chip("ref", tr("lg.ref"));
   $("pzLegend").innerHTML = lg;
-  let sl = chip("y", "y(t)") + chip("u", "input u(t) = 1");
-  if (st && st.stab === "stable") sl += chip("band", "final value ± 2 %");
-  if (st && st.m && isFinite(st.m.tp)) sl += chip("peak", "peak");
-  if (st && st.m && isFinite(st.m.ts) && st.m.ts > 0) sl += chip("ts", "settling time");
-  if (S.ref) sl += chip("r", "reference");
-  if (st && st.yo) sl += chip("ol", "open-loop step of K·G(s)");
+  let sl = chip("y", "y(t)") + chip("u", tr("lg.input"));
+  if (st && st.stab === "stable") sl += chip("band", tr("lg.band"));
+  if (st && st.m && isFinite(st.m.tp)) sl += chip("peak", tr("lg.peak"));
+  if (st && st.m && isFinite(st.m.ts) && st.m.ts > 0) sl += chip("ts", tr("lg.ts"));
+  if (S.ref) sl += chip("r", tr("lg.ref"));
+  if (st && st.yo) sl += chip("ol", tr("lg.ol"));
   $("stLegend").innerHTML = sl;
   // Bode controls and legend
   const B = S.bode;
   $("bodeOf").hidden = S.mode !== "open";
   for (const b of $("bodeOf").children) b.setAttribute("aria-checked", String(b.dataset.v === S.bodeOf));
-  $("bdTitle").textContent = B ? (B.of === "loop" ? "Bode diagram of the loop K·G(jω)" : "Bode diagram of T(jω)") : "Bode diagram";
-  let bl = chip("y", "exact");
-  if (B && B.as) bl += chip("asym", "straight-line asymptotes") + `<span><svg viewBox="0 0 18 12"><path d="M9 0v12" stroke="var(--asym)" stroke-dasharray="1 2.5" stroke-width="1.4"/></svg>corner frequencies</span>`;
-  if (B && B.of === "loop" && S.margins && (S.margins.pm || S.margins.gm)) bl += chip("marg", "gain and phase margins");
-  if (B && S.ref && S.ref.bode && S.ref.bode.of === B.of) bl += chip("r", "reference");
+  $("bdTitle").textContent = tr(B ? (B.of === "loop" ? "bdTitle.loop" : "bdTitle.cl") : "bdTitle");
+  let bl = chip("y", tr("lg.exact"));
+  if (B && B.as) bl += chip("asym", tr("lg.asym")) + `<span><svg viewBox="0 0 18 12"><path d="M9 0v12" stroke="var(--asym)" stroke-dasharray="1 2.5" stroke-width="1.4"/></svg>${tr("lg.corners")}</span>`;
+  if (B && B.of === "loop" && S.margins && (S.margins.pm || S.margins.gm)) bl += chip("marg", tr("lg.margins"));
+  if (B && S.ref && S.ref.bode && S.ref.bode.of === B.of) bl += chip("r", tr("lg.ref"));
   $("bdLegend").innerHTML = bl;
   // metrics
-  if (S.err || !st) $("metrics").innerHTML = `<h3>Step-response metrics</h3><p class="none">No response: fix the transfer function first.</p>`;
+  if (S.err || !st) $("metrics").innerHTML = `<h3>${tr("m.title")}</h3><p class="none">${tr("m.noResp")}</p>`;
   else {
-    const pill = { stable: ["ok", "Stable"], marginal: ["warn", "Marginally stable"], unstable: ["bad", "Unstable"] }[st.stab];
+    const pill = { stable: "ok", marginal: "warn", unstable: "bad" }[st.stab];
     let rows = "";
     if (st.stab === "stable") {
-      rows += `<dt>Final value y(∞)</dt><dd>${minus(fmtN(st.yss))}</dd>`;
-      if (S.mode === "open") rows += `<dt>Steady-state error</dt><dd>${minus(fmtN(1 - st.yss))}</dd>`;
-      if (st.m) { rows += `<dt>Overshoot</dt><dd>${st.m.Mp.toFixed(2)} %</dd><dt>Peak time</dt><dd>${fmtT(st.m.tp)}</dd>`
-        + `<dt>Rise time 10–90 %</dt><dd>${fmtT(st.m.tr)}</dd><dt>Settling time 2 %</dt><dd>${fmtT(st.m.ts)}</dd>`;
-        if (st.m.us > 0.1) rows += `<dt>Undershoot</dt><dd>${st.m.us.toFixed(2)} %</dd>`; }
+      rows += `<dt>${tr("m.final")}</dt><dd>${minus(fmtN(st.yss))}</dd>`;
+      if (S.mode === "open") rows += `<dt>${tr("m.ess")}</dt><dd>${minus(fmtN(1 - st.yss))}</dd>`;
+      if (st.m) { rows += `<dt>${tr("m.os")}</dt><dd>${st.m.Mp.toFixed(2)} %</dd><dt>${tr("m.tp")}</dt><dd>${fmtT(st.m.tp)}</dd>`
+        + `<dt>${tr("m.tr")}</dt><dd>${fmtT(st.m.tr)}</dd><dt>${tr("m.ts")}</dt><dd>${fmtT(st.m.ts)}</dd>`;
+        if (st.m.us > 0.1) rows += `<dt>${tr("m.us")}</dt><dd>${st.m.us.toFixed(2)} %</dd>`; }
     }
-    let html = `<h3>Step-response metrics <span class="pill ${pill[0]}">${pill[1]}</span></h3>`
-      + (rows ? `<dl class="m">${rows}</dl>` : `<p class="none">${st.stab === "unstable" ? "A pole is in the right half-plane, so the response grows without bound." : "Poles on the imaginary axis: the response does not settle."}</p>`);
+    let html = `<h3>${tr("m.title")} <span class="pill ${pill}">${tr("stab." + st.stab)}</span></h3>`
+      + (rows ? `<dl class="m">${rows}</dl>` : `<p class="none">${tr(st.stab === "unstable" ? "m.unstable" : "m.marginal")}</p>`);
     const M = S.margins;
     if (S.mode === "open" && M) {
-      const gm = M.gm ? `${minus(fmtN(M.gm.v, 3))} dB at ${fmtN(M.gm.w, 3)} rad/s` : "∞ (phase never reaches −180°)";
-      const pm = M.pm ? `${minus(fmtN(M.pm.v, 3))}° at ${fmtN(M.pm.w, 3)} rad/s` : "none (|K·G| never crosses 0 dB)";
-      html += `<h3 class="sub2"><span>Stability margins of <span class="nt">K·G(s)</span></span></h3><dl class="m"><dt>Gain margin</dt><dd>${gm}</dd><dt>Phase margin</dt><dd>${pm}</dd></dl>`;
-      if (M.olUnstable) html += `<p class="hint">The open loop has right-half-plane poles, so these margins do not decide closed-loop stability. Use the Nyquist criterion, or read stability from the closed-loop poles.</p>`;
+      const gm = M.gm ? tr("mg.gmVal", { v: minus(fmtN(M.gm.v, 3)), w: fmtN(M.gm.w, 3) }) : tr("mg.gmNone");
+      const pm = M.pm ? tr("mg.pmVal", { v: minus(fmtN(M.pm.v, 3)), w: fmtN(M.pm.w, 3) }) : tr("mg.pmNone");
+      html += `<h3 class="sub2"><span>${tr("mg.title")} <span class="nt">K·G(s)</span></span></h3><dl class="m"><dt>${tr("mg.gm")}</dt><dd>${gm}</dd><dt>${tr("mg.pm")}</dt><dd>${pm}</dd></dl>`;
+      if (M.olUnstable) html += `<p class="hint">${tr("mg.olUnstable")}</p>`;
     }
     $("metrics").innerHTML = html;
   }
@@ -968,11 +1144,11 @@ function updateDOM() {
   const row = r => { const v = r.pair ? `${minus(fmtN(r.re, 3))} ± j${fmtN(Math.abs(r.im), 3)}` : minus(fmtN(r.re, 4));
     const wn = Math.hypot(r.re, r.im), z = wn ? -r.re / wn : NaN, tau = r.re < 0 ? -1 / r.re : NaN;
     return `<tr><td class="${r.re > 1e-12 ? "rhp" : ""}">${v}</td><td>${r.pair ? minus(fmtN(z, 3)) : "—"}</td><td>${r.pair ? fmtN(wn, 3) : "—"}</td><td>${isFinite(tau) ? fmtN(tau, 3) + " s" : "—"}</td></tr>`; };
-  const sec = (title, list) => `<tbody><tr><th colspan="4">${title}</th></tr>` + (list.length ? list.sort((a, b) => b.re - a.re).map(row).join("") : `<tr><td colspan="4" style="color:var(--muted)">none</td></tr>`) + `</tbody>`;
-  let tbl = `<thead><tr><th>Location</th><th>ζ</th><th>ω<sub>n</sub></th><th>τ</th></tr></thead>`;
-  tbl += sec(`Poles of ${H}(s)`, S.items.filter(r => r.kind === "p"));
-  tbl += sec(`Zeros of ${H}(s)`, S.items.filter(r => r.kind === "z"));
-  if (S.mode === "open" && sys && !S.err) tbl += sec("Closed-loop poles", groupRoots(sys.pC, "p"));
+  const sec = (title, list) => `<tbody><tr><th colspan="4">${title}</th></tr>` + (list.length ? list.sort((a, b) => b.re - a.re).map(row).join("") : `<tr><td colspan="4" style="color:var(--muted)">${tr("tbl.none")}</td></tr>`) + `</tbody>`;
+  let tbl = `<thead><tr><th>${tr("tbl.loc")}</th><th>ζ</th><th>ω<sub>n</sub></th><th>τ</th></tr></thead>`;
+  tbl += sec(tr("tbl.poles", { H }), S.items.filter(r => r.kind === "p"));
+  tbl += sec(tr("tbl.zeros", { H }), S.items.filter(r => r.kind === "z"));
+  if (S.mode === "open" && sys && !S.err) tbl += sec(tr("tbl.cl"), groupRoots(sys.pC, "p"));
   $("roots").innerHTML = tbl;
 }
 
@@ -982,11 +1158,11 @@ function schedule() { if (!pending) { pending = true; requestAnimationFrame(rend
 function render() {
   pending = false;
   S.err = null;
-  try { compute(); } catch (e) { S.err = e.message; setStatus(e.message, "bad"); }
+  try { compute(); } catch (e) { S.err = e; setStatus(() => errText(e), "bad"); }
   if (S.needFit && pzCv.clientWidth) { fitView(); S.needFit = false; }
   if (S.fitIfOut && !S.err && outOfView()) fitView();
   S.fitIfOut = false;
-  if (!S.err) { try { computeStep(); } catch (e) { S.err = "Could not compute the step response: " + e.message; setStatus(S.err, "bad"); } }
+  if (!S.err) { try { computeStep(); } catch (e) { S.err = e; setStatus(() => tr("e.step", { msg: errText(e) }), "bad"); } }
   if (!S.err) computeBode(); else { S.bode = null; S.margins = null; }
   const c = colors();
   drawPZ(c); drawStep(c); drawBode(c); updateDOM();
@@ -1003,20 +1179,20 @@ function apply() {
   let num, den;
   for (const [id, setter] of [["num", v => num = v], ["den", v => den = v]]) {
     try { setter(parsePoly($(id).value)); $(id).classList.remove("invalid"); }
-    catch (e) { $(id).classList.add("invalid"); setStatus(`${id === "num" ? "Numerator" : "Denominator"}: ${e.message}.`, "bad"); return; }
+    catch (e) { $(id).classList.add("invalid"); setStatus(() => `${tr(id === "num" ? "lbl.numShort" : "lbl.denShort")}: ${errText(e)}.`, "bad"); return; }
   }
   if (num.length > den.length) { $("num").classList.add("invalid");
-    setStatus("The numerator has a higher degree than the denominator. Enter a proper transfer function (no more zeros than poles).", "bad"); return; }
+    say("s.improper", null, "bad"); return; }
   S.k = num[0] / den[0];
   S.items = [...groupRoots(polyRoots(num), "z"), ...groupRoots(polyRoots(den), "p")];
   S.applied = { items: clone(S.items), k: S.k };
   S.lastWritten = [$("num").value, $("den").value];
   S.needFit = true;
-  setStatus(`Applied ${S.mode === "open" ? "G" : "T"}(s).`, "good");
+  say("s.applied", { H: S.mode === "open" ? "G" : "T" }, "good");
   schedule();
 }
 function reset() { if (!S.applied) return; S.items = clone(S.applied.items); S.k = S.applied.k; S.needFit = true;
-  setStatus("Back to the last applied transfer function."); compute(); writeInputs(); schedule(); }
+  say("s.reset"); compute(); writeInputs(); schedule(); }
 function setMode(m) { S.mode = m; for (const b of $("mode").children) b.setAttribute("aria-checked", String(b.dataset.v === m)); S.needFit = true; schedule(); }
 function setTool(t) { S.tool = t; for (const b of $("tool").children) b.setAttribute("aria-checked", String(b.dataset.v === t));
   pzCv.style.cursor = t === "move" ? "default" : t === "delete" ? "not-allowed" : "crosshair"; }
@@ -1026,18 +1202,18 @@ function setK(K, from) { if (!(K > 0)) return; S.K = K;
   S.fitIfOut = true; schedule(); }
 function addRoot(kind, px, py) {
   const [x, y] = toData(px, py), axisPx = toPx(x, 0)[1], real = Math.abs(py - axisPx) < 8, n = real ? 1 : 2;
-  if (kind === "z" && countOf("z") + n > countOf("p")) { setStatus("That zero would give more zeros than poles. Add a pole first.", "bad"); return; }
+  if (kind === "z" && countOf("z") + n > countOf("p")) { say("s.zeroImproper", null, "bad"); return; }
   const dc = dcGain();
   S.items.push({ kind, re: x, im: real ? 0 : Math.abs(y), pair: !real });
   applyDcLock(dc);
-  setStatus(`Added ${real ? "a real" : "a complex pair of"} ${kind === "p" ? "pole" : "zero"}${real ? "" : "s"} at ${minus(fmtN(x, 3))}${real ? "" : ` ± j${fmtN(Math.abs(y), 3)}`}.`, "good");
+  say((real ? "s.addReal" : "s.addPair") + (kind === "p" ? "P" : "Z"), { x: minus(fmtN(x, 3)), y: fmtN(Math.abs(y), 3) }, "good");
   compute(); writeInputs(); schedule();
 }
 function deleteRoot(r) {
   const n = r.pair ? 2 : 1;
-  if (r.kind === "p" && countOf("p") - n < countOf("z")) { setStatus("Deleting that pole would leave more zeros than poles. Delete a zero first.", "bad"); return; }
+  if (r.kind === "p" && countOf("p") - n < countOf("z")) { say("s.poleImproper", null, "bad"); return; }
   const dc = dcGain(); S.items = S.items.filter(q => q !== r); applyDcLock(dc);
-  setStatus(`Deleted ${r.pair ? "a complex pair of " + (r.kind === "p" ? "poles" : "zeros") : "a " + (r.kind === "p" ? "pole" : "zero")}.`, "good");
+  say((r.pair ? "s.delPair" : "s.del") + (r.kind === "p" ? "P" : "Z"), null, "good");
   if (S.hover === r) S.hover = null;
   compute(); writeInputs(); schedule();
 }
@@ -1054,13 +1230,13 @@ pzCv.addEventListener("pointerdown", e => {
   if (e.button !== 0) return;
   pzCv.focus({ preventScroll: true });
   if (S.tool === "pole" || S.tool === "zero") { addRoot(S.tool === "pole" ? "p" : "z", px, py); return; }
-  if (S.tool === "delete") { if (hit) deleteRoot(hit); else setStatus("Click a pole or zero to delete it."); return; }
+  if (S.tool === "delete") { if (hit) deleteRoot(hit); else say("s.clickDelete"); return; }
   if (hit) {
     let partner = null;
     if (!hit.pair) { const [hx, hy] = toPx(hit.re, 0);
       partner = S.items.find(q => q !== hit && q.kind === hit.kind && !q.pair && Math.hypot(toPx(q.re, 0)[0] - hx, toPx(q.re, 0)[1] - hy) < 8) || null; }
     const dc = dcGain();
-    if (S.lockDC && (!isFinite(dc) || dc === 0)) setStatus("The DC gain is infinite or zero (a pole or zero at s = 0), so it cannot be locked.", "bad");
+    if (S.lockDC && (!isFinite(dc) || dc === 0)) say("s.dcNoLock", null, "bad");
     S.drag = { item: hit, partner, x0: px, y0: py, dc };
     pzCv.style.cursor = "grabbing";
   } else S.pan = { x0: px, y0: py, cx: S.view.cx, cy: S.view.cy };
@@ -1075,7 +1251,7 @@ pzCv.addEventListener("pointermove", e => {
     if (r.pair) { r.re = x; r.im = Math.max(Math.abs(y), 1e-12); }
     else if (d.partner && Math.abs(py - d.y0) > 16 && Math.abs(py - d.y0) > Math.abs(px - d.x0)) {
       S.items = S.items.filter(q => q !== d.partner); r.pair = true; r.re = x; r.im = Math.abs(y); d.partner = null;
-      setStatus("Two coincident real roots became a complex-conjugate pair.", "good");
+      say("s.joined", null, "good");
     } else { r.re = x; r.im = 0; }
     applyDcLock(d.dc);
     try { compute(); writeInputs(); } catch (_) { }
@@ -1090,7 +1266,7 @@ function endPointer() {
     const r = d.item;
     if (r.pair && Math.abs(toPx(r.re, r.im)[1] - toPx(r.re, 0)[1]) < 8) {
       r.pair = false; r.im = 0; S.items.push({ kind: r.kind, re: r.re, im: 0, pair: false });
-      setStatus(`The pair landed on the real axis and split into two real ${r.kind === "p" ? "poles" : "zeros"}.`, "good");
+      say(r.kind === "p" ? "s.splitP" : "s.splitZ", null, "good");
     }
     applyDcLock(d.dc); S.fitIfOut = true;
     try { compute(); writeInputs(); } catch (_) { }
@@ -1124,7 +1300,7 @@ for (const id of ["num", "den"]) $(id).addEventListener("keydown", e => { if (e.
 $("mode").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setMode(b.dataset.v); });
 $("tool").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setTool(b.dataset.v); });
 $("kslider").addEventListener("input", e => setK(Math.pow(10, Number(e.target.value)), "slider"));
-$("knum").addEventListener("change", e => { const v = Number(e.target.value); if (v > 0) setK(v, "num"); else { e.target.value = fmtN(S.K, 4); setStatus("K must be a positive number.", "bad"); } });
+$("knum").addEventListener("change", e => { const v = Number(e.target.value); if (v > 0) setK(v, "num"); else { e.target.value = fmtN(S.K, 4); say("s.kPositive", null, "bad"); } });
 $("cAsym").addEventListener("change", e => { S.showAsym = e.target.checked; schedule(); });
 $("bodeOf").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { S.bodeOf = b.dataset.v; schedule(); } });
 bdCv.addEventListener("pointermove", e => { const b = bdCv.getBoundingClientRect(); S.bodeHover = e.clientX - b.left; schedule(); });
@@ -1132,16 +1308,18 @@ bdCv.addEventListener("pointerleave", () => { S.bodeHover = null; schedule(); })
 $("cGrid").addEventListener("change", e => { S.showGrid = e.target.checked; schedule(); });
 $("cOL").addEventListener("change", e => { S.showOL = e.target.checked; schedule(); });
 $("cDC").addEventListener("change", e => { S.lockDC = e.target.checked;
-  if (S.lockDC) { const dc = dcGain(); setStatus(!isFinite(dc) || dc === 0 ? "The DC gain is infinite or zero (a pole or zero at s = 0), so it cannot be locked." : `DC gain locked at ${minus(fmtN(dc))}.`, !isFinite(dc) || dc === 0 ? "bad" : "good"); } });
+  if (S.lockDC) { const dc = dcGain(), bad = !isFinite(dc) || dc === 0; say(bad ? "s.dcNoLock" : "s.dcLocked", { v: minus(fmtN(dc)) }, bad ? "bad" : "good"); } });
 $("cAxes").addEventListener("change", e => { S.lockAxes = e.target.checked; S.lockedView = S.lockAxes && S.step ? { ...S.step.view } : null; schedule(); });
 $("freeze").addEventListener("click", () => { if (!S.step || S.err) return;
   S.ref = { t: S.step.t.slice(), y: S.step.y.slice(), p: rootsOf("p"), z: rootsOf("z"), pc: S.mode === "open" ? S.sys.pC.map(r => r.slice()) : [],
     bode: S.bode ? { of: S.bode.of, label: S.bode.label, w: S.bode.w.slice(), mag: S.bode.mag.slice(), ph: S.bode.ph.slice() } : null };
-  setStatus("Reference frozen in grey. Now move poles or zeros to compare.", "good"); schedule(); });
-$("clear").addEventListener("click", () => { S.ref = null; setStatus("Reference cleared."); schedule(); });
+  say("s.frozen", null, "good"); schedule(); });
+$("clear").addEventListener("click", () => { S.ref = null; say("s.cleared"); schedule(); });
 $("fit").addEventListener("click", () => { S.needFit = true; schedule(); });
 const sel = $("preset");
-sel.innerHTML = `<option value="">Choose an example…</option>` + PRESETS.map((p, i) => `<option value="${i}">${p.name}</option>`).join("");
+function fillPresets() { const v = sel.value;
+  sel.innerHTML = `<option value="">${tr("preset.choose")}</option>` + PRESETS.map((p, i) => `<option value="${i}">${tr(p.key)}: ${p.f}</option>`).join("");
+  sel.value = v; }
 sel.addEventListener("change", () => { const p = PRESETS[Number(sel.value)]; if (!p) return;
   $("num").value = p.num; $("den").value = p.den; setMode(p.mode); setK(p.K); apply(); });
 
@@ -1151,6 +1329,28 @@ new ResizeObserver(() => schedule()).observe(bdCv);
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", schedule);
 new MutationObserver(schedule).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
+/* ---- language switch: Norwegian by default; the choice is remembered in this browser, and #en / #nb in the link also selects it */
+function setLang(l, remember) {
+  LANG = I18N[l] ? l : "nb";
+  document.documentElement.lang = LANG;
+  document.title = tr("title");
+  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = tr(el.dataset.i18n);
+  for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML = tr(el.dataset.i18nHtml);
+  for (const el of document.querySelectorAll("[data-i18n-aria]")) el.setAttribute("aria-label", tr(el.dataset.i18nAria));
+  for (const b of $("lang").children) b.setAttribute("aria-checked", String(b.dataset.v === LANG));
+  fillPresets(); showStatus();
+  if (remember) {
+    try { localStorage.setItem("pzx-lang", LANG); } catch (_) { }
+    try { if (/^#(en|nb|no)$/.test(location.hash)) history.replaceState(null, "", "#" + LANG); } catch (_) { }
+  }
+  schedule();
+}
+$("lang").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setLang(b.dataset.v, true); });
+let startLang = "nb";
+try { const h = location.hash.slice(1); if (h === "en" || h === "nb" || h === "no") startLang = h === "no" ? "nb" : h;
+  else { const st = localStorage.getItem("pzx-lang"); if (st && I18N[st]) startLang = st; } } catch (_) { }
+
+setLang(startLang, false);
 setTool("move");
 apply();
 </script>
