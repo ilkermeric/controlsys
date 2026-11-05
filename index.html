@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pol- og nullpunktutforsker</title>
-<meta name="description" content="Interaktiv utforsker for poler, nullpunkter, sprangrespons og Bodediagram i ELE204 Reguleringsteknikk.">
+<meta name="description" content="Interaktiv utforsker for poler, nullpunkter, sprangrespons og Bodediagram i emnet ELE204.">
 <style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <style>
 /* Layout: bench instrument — a control rail on the left, two linked plots (s-plane | time response) on the right, read-outs beneath */
@@ -39,6 +39,9 @@ h1{font:600 1.6rem/1.1 var(--display);letter-spacing:.01em;margin:0;text-wrap:ba
 .titlerow{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap}
 .seg.lang{display:inline-grid;grid-template-columns:auto auto}
 .seg.lang button{padding:4px 11px;font-size:.78rem}
+.guide{display:inline-flex;align-items:center;gap:7px;font-size:.84rem;font-weight:500;color:var(--pz);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:3px 11px 3px 4px;background:var(--panel)}
+.guide:hover{border-color:var(--pz)}
+.guide .q{display:inline-grid;place-items:center;width:19px;height:19px;border-radius:50%;background:var(--pz);color:var(--on-accent);font-weight:600;font-size:.74rem;line-height:1}
 .tf{display:flex;flex-wrap:wrap;gap:10px 28px;align-items:center;min-width:0;overflow-x:auto}
 .eq{display:flex;align-items:center;gap:8px;font-size:1rem}
 .eq .lhs{font-style:italic;white-space:nowrap}
@@ -142,6 +145,7 @@ td.rhp{color:var(--bad)}
           <button role="radio" data-v="nb" aria-checked="true" lang="nb">Norsk</button>
           <button role="radio" data-v="en" aria-checked="false" lang="en">English</button>
         </div>
+        <a id="guide" class="guide" href="#" target="_blank" rel="noopener" hidden><span class="q" aria-hidden="true">?</span><span data-i18n="guide">Brukerveiledning</span></a>
       </div>
       <p class="sub" data-i18n="sub">Skriv inn en overføringsfunksjon, dra polene og nullpunktene i s-planet, og se hvordan sprangresponsen og Bodediagrammet endrer seg.</p>
     </div>
@@ -251,7 +255,7 @@ const I18N = {
   nb: {
     "title": "Pol- og nullpunktutforsker",
     "sub": "Skriv inn en overføringsfunksjon, dra polene og nullpunktene i s-planet, og se hvordan sprangresponsen og Bodediagrammet endrer seg.",
-    "aria.lang": "Språk", "aria.controls": "Kontroller",
+    "aria.lang": "Språk", "aria.controls": "Kontroller", "guide": "Brukerveiledning", "guide.title": "Åpner brukerveiledningen i en ny fane",
     "h.tf": "Overføringsfunksjon", "lbl.num": "Teller N(s)", "lbl.den": "Nevner D(s)", "lbl.numShort": "Teller", "lbl.denShort": "Nevner",
     "btn.apply": "Bruk", "btn.reset": "Tilbakestill",
     "hint.input": "Skriv <kbd>s^2 + 2s + 4</kbd>, <kbd>(s+1)(s+3)</kbd>, <kbd>10(s+0.5)^2</kbd> eller koeffisienter <kbd>1 2 4</kbd>. Bruk punktum som desimaltegn. Trykk Enter eller Bruk.",
@@ -325,7 +329,7 @@ const I18N = {
   en: {
     "title": "Pole–Zero Explorer",
     "sub": "Enter a transfer function, then drag its poles and zeros in the s-plane and watch the step response and Bode diagram change.",
-    "aria.lang": "Language", "aria.controls": "Controls",
+    "aria.lang": "Language", "aria.controls": "Controls", "guide": "User guide", "guide.title": "Opens the user guide in a new tab",
     "h.tf": "Transfer function", "lbl.num": "Numerator N(s)", "lbl.den": "Denominator D(s)", "lbl.numShort": "Numerator", "lbl.denShort": "Denominator",
     "btn.apply": "Apply", "btn.reset": "Reset",
     "hint.input": "Write <kbd>s^2 + 2s + 4</kbd>, <kbd>(s+1)(s+3)</kbd>, <kbd>10(s+0.5)^2</kbd> or coefficients <kbd>1 2 4</kbd>. Use a decimal point. Press Enter or Apply.",
@@ -1329,6 +1333,21 @@ new ResizeObserver(() => schedule()).observe(bdCv);
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", schedule);
 new MutationObserver(schedule).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
+/* ---- user guide link: the README in the GitHub repository, opened at the section for the current language.
+   On GitHub Pages (https://<user>.github.io/<repo>/) the address is worked out automatically.
+   Hosted somewhere else, put the full address of the guide in GUIDE_URL; with neither, the link is hidden. */
+const GUIDE_URL = "";
+function guideUrl() {
+  const anchor = LANG === "nb" ? "norsk" : "english";
+  if (GUIDE_URL) return GUIDE_URL.split("#")[0] + "#" + anchor;
+  const m = /^([a-z0-9-]+)\.github\.io$/i.exec(location.hostname);
+  if (!m) return null;
+  const seg = location.pathname.split("/").filter(Boolean)[0];
+  const repo = seg && !seg.includes(".") ? seg : `${m[1]}.github.io`;
+  return `https://github.com/${m[1]}/${repo}/blob/main/README.md#${anchor}`;
+}
+function updateGuide() { const a = $("guide"), u = guideUrl(); a.hidden = !u; if (u) { a.href = u; a.title = tr("guide.title"); } }
+
 /* ---- language switch: Norwegian by default; the choice is remembered in this browser, and #en / #nb in the link also selects it */
 function setLang(l, remember) {
   LANG = I18N[l] ? l : "nb";
@@ -1338,7 +1357,7 @@ function setLang(l, remember) {
   for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML = tr(el.dataset.i18nHtml);
   for (const el of document.querySelectorAll("[data-i18n-aria]")) el.setAttribute("aria-label", tr(el.dataset.i18nAria));
   for (const b of $("lang").children) b.setAttribute("aria-checked", String(b.dataset.v === LANG));
-  fillPresets(); showStatus();
+  fillPresets(); showStatus(); updateGuide();
   if (remember) {
     try { localStorage.setItem("pzx-lang", LANG); } catch (_) { }
     try { if (/^#(en|nb|no)$/.test(location.hash)) history.replaceState(null, "", "#" + LANG); } catch (_) { }

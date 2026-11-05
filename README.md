@@ -1,6 +1,6 @@
 # Pol- og nullpunktutforsker · Pole–Zero Explorer
 
-**Åpne / Open:** https://ilkermeric.github.io/controlsys/  ·  English version of the page: https://ilkermeric.github.io/controlsys/#en
+**Åpne / Open:** https://&lt;username&gt;.github.io/ele204/  ·  English version of the page: https://&lt;username&gt;.github.io/ele204/#en
 
 [Norsk](#norsk) · [English](#english)
 
@@ -108,7 +108,7 @@ Siden er én enkelt HTML-fil (`index.html`) med HTML, CSS og ren JavaScript, ute
 
 Du kan også laste ned `index.html` og åpne den i en vanlig nettleser uten å gå via nettsiden.
 
-### Oppdatere nettsiden
+### Oppdatere nettsiden (for faglærer)
 
 Last opp en ny `index.html` til dette repositoriet: **Add file → Upload files → Commit changes**. GitHub Pages publiserer den på nytt i løpet av et par minutter, og adressen forblir den samme.
 
@@ -216,7 +216,7 @@ The page is a single HTML file (`index.html`) of HTML, CSS and plain JavaScript,
 
 To run it without the website, download `index.html` and open it in any modern browser.
 
-### Updating the site
+### Updating the site (for the instructor)
 
 Upload a new `index.html` to this repository: **Add file → Upload files → Commit changes**. GitHub Pages republishes it within a minute or two, and the address stays the same.
 
