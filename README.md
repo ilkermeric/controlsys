@@ -1,6 +1,6 @@
 # Pol- og nullpunktutforsker · Pole–Zero Explorer
 
-**Åpne / Open:** https://&lt;username&gt;.github.io/ele204/  ·  English version of the page: https://&lt;username&gt;.github.io/ele204/#en
+**Åpne / Open:** https://ilkermeric.github.io/controlsys/  ·  English version of the page: https://ilkermeric.github.io/controlsys/#en
 
 [Norsk](#norsk) · [English](#english)
 
