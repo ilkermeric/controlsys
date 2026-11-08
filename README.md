@@ -114,7 +114,7 @@ Nettsiden teller besøk med [GoatCounter](https://www.goatcounter.com), en tjene
 
 - Telleren bruker ingen informasjonskapsler (cookies) og lagrer ingenting på enheten din.
 - IP-adressen din blir ikke lagret.
-- Bare samlede tall blir lagret: hvilke sider som er besøkt, hvilken side du kom fra, nettlesertype, skjermstørrelse, land og språk.
+- Bare samlede tall blir lagret: hvilke sider som er besøkt, hvilken side du kom fra, nettlesertype, skjermstørrelse, land, og om siden vises på norsk eller engelsk.
 - Tallene brukes bare til å se hvor mye verktøyet brukes i emnet.
 - Det du skriver inn og beregner i verktøyet, blir i nettleseren din og sendes ikke noe sted.
 
@@ -234,7 +234,7 @@ The site counts visits with [GoatCounter](https://www.goatcounter.com), an open-
 
 - The counter uses no cookies and stores nothing on your device.
 - Your IP address is not stored.
-- Only totals are kept: which pages were visited, which site you came from, browser type, screen size, country and language.
+- Only totals are kept: which pages were visited, which site you came from, browser type, screen size, country, and whether the page is shown in Norwegian or English.
 - The numbers are used only to see how much the tool is used in the course.
 - What you type and calculate in the tool stays in your browser and is not sent anywhere.
 

@@ -1354,12 +1354,24 @@ function updateGuide() { const a = $("guide"), u = guideUrl(); a.hidden = !u; if
 /* ---- visit counter (GoatCounter, cookieless, aggregate counts only). It runs only on the GitHub Pages site,
    so copies opened from a computer or published elsewhere are not counted. */
 const COUNTER_ENDPOINT = "https://imeric.goatcounter.com/count";
+let counterOn = false;
+const counterQueue = [];
+/* Events show up in GoatCounter next to the pages, marked as events: lang/start/… is the language the page
+   opened in (the student's remembered choice), lang/switch/… is a click on the Norsk | English switch. */
+function countEvent(path, title) {
+  if (!counterOn) return;
+  const gc = window.goatcounter;
+  if (gc && gc.count) gc.count({ path, title, event: true }); else counterQueue.push([path, title]);
+}
 if (COUNTER_ENDPOINT && /\.github\.io$/i.test(location.hostname)) {
+  counterOn = true;
   const sc = document.createElement("script");
   sc.async = true; sc.src = "https://gc.zgo.at/count.js"; sc.dataset.goatcounter = COUNTER_ENDPOINT;
+  sc.addEventListener("load", () => { for (const [p, t] of counterQueue.splice(0)) countEvent(p, t); });
   document.head.appendChild(sc);
   $("privacy").hidden = false;
 }
+const langName = l => (l === "nb" ? "norsk" : "engelsk");
 
 /* ---- language switch: Norwegian by default; the choice is remembered in this browser, and #en / #nb in the link also selects it */
 function setLang(l, remember) {
@@ -1377,12 +1389,14 @@ function setLang(l, remember) {
   }
   schedule();
 }
-$("lang").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setLang(b.dataset.v, true); });
+$("lang").addEventListener("click", e => { const b = e.target.closest("button"); if (!b || b.dataset.v === LANG) return;
+  setLang(b.dataset.v, true); countEvent("lang/switch/" + LANG, "Byttet språk til " + langName(LANG)); });
 let startLang = "nb";
 try { const h = location.hash.slice(1); if (h === "en" || h === "nb" || h === "no") startLang = h === "no" ? "nb" : h;
   else { const st = localStorage.getItem("pzx-lang"); if (st && I18N[st]) startLang = st; } } catch (_) { }
 
 setLang(startLang, false);
+countEvent("lang/start/" + LANG, "Siden åpnet på " + langName(LANG));
 setTool("move");
 apply();
 </script>
