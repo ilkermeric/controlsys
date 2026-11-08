@@ -1,6 +1,6 @@
 # Pol- og nullpunktutforsker · Pole–Zero Explorer
 
-**Åpne / Open:** https://ilkermeric.github.io/ele204/  ·  English version of the page: https://ilkermeric.github.io/ele204/#en
+**Åpne / Open:** https://&lt;username&gt;.github.io/ele204/  ·  English version of the page: https://&lt;username&gt;.github.io/ele204/#en
 
 [Norsk](#norsk) · [English](#english)
 
@@ -100,13 +100,25 @@ Nøkkeltallene vises bare når systemet er stabilt. Ustabile og marginalt stabil
 
 ### Teknisk
 
-Siden er én enkelt HTML-fil (`index.html`) med HTML, CSS og ren JavaScript, uten biblioteker og uten forespørsler til eksterne tjenere. Alle beregninger skjer i nettleseren til studenten:
+Siden er én enkelt HTML-fil (`index.html`) med HTML, CSS og ren JavaScript, uten biblioteker. Den eneste forespørselen til en ekstern tjener er besøkstelleren (se [Personvern](#personvern)). Alle beregninger skjer i nettleseren til studenten:
 
 - Polynomrøttene finnes med Aberth–Ehrlich-metoden.
 - Sprangresponsen beregnes eksakt i samplingstidspunktene med en nullteordens holdeelement-diskretisering (ZOH) av en tilstandsrommodell. Matriseeksponentialen beregnes ved skalering og kvadrering med en Padé-tilnærming.
 - Bodediagrammet beregnes fra polene og nullpunktene, og fasen holdes kontinuerlig (uten sprang på 360°) over hele frekvensområdet.
 
 Du kan også laste ned `index.html` og åpne den i en vanlig nettleser uten å gå via nettsiden.
+
+### Personvern
+
+Nettsiden teller besøk med [GoatCounter](https://www.goatcounter.com), en tjeneste med åpen kildekode og servere i EU (Finland og Tyskland).
+
+- Telleren bruker ingen informasjonskapsler (cookies) og lagrer ingenting på enheten din.
+- IP-adressen din blir ikke lagret.
+- Bare samlede tall blir lagret: hvilke sider som er besøkt, hvilken side du kom fra, nettlesertype, skjermstørrelse, land og språk.
+- Tallene brukes bare til å se hvor mye verktøyet brukes i emnet.
+- Det du skriver inn og beregner i verktøyet, blir i nettleseren din og sendes ikke noe sted.
+
+Telleren kjører bare på GitHub Pages-siden, ikke når du åpner `index.html` fra din egen maskin. Se også [GoatCounters personvernerklæring](https://www.goatcounter.com/privacy).
 
 ### Oppdatere nettsiden (for faglærer)
 
@@ -208,13 +220,25 @@ Metrics are shown only when the system is stable. Unstable and marginally stable
 
 ### Technical notes
 
-The page is a single HTML file (`index.html`) of HTML, CSS and plain JavaScript, with no libraries and no requests to outside servers. All calculations run in the student's browser:
+The page is a single HTML file (`index.html`) of HTML, CSS and plain JavaScript, with no libraries. Its only request to an outside server is the visit counter (see [Privacy](#privacy)). All calculations run in the student's browser:
 
 - Polynomial roots are found with the Aberth–Ehrlich method.
 - The step response is computed exactly at the sample times, using a zero-order-hold discretisation of a state-space model. The matrix exponential is computed by scaling and squaring with a Padé approximant.
 - The Bode diagram is evaluated from the poles and zeros. The phase is kept continuous (unwrapped) across the frequency range.
 
 To run it without the website, download `index.html` and open it in any modern browser.
+
+### Privacy
+
+The site counts visits with [GoatCounter](https://www.goatcounter.com), an open-source service with servers in the EU (Finland and Germany).
+
+- The counter uses no cookies and stores nothing on your device.
+- Your IP address is not stored.
+- Only totals are kept: which pages were visited, which site you came from, browser type, screen size, country and language.
+- The numbers are used only to see how much the tool is used in the course.
+- What you type and calculate in the tool stays in your browser and is not sent anywhere.
+
+The counter runs only on the GitHub Pages site, not when you open `index.html` from your own computer. See also [GoatCounter's privacy policy](https://www.goatcounter.com/privacy).
 
 ### Updating the site (for the instructor)
 

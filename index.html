@@ -242,6 +242,7 @@ td.rhp{color:var(--bad)}
         <section class="card"><h3 data-i18n="h.roots">Poler og nullpunkter</h3><div class="tw"><table id="roots"></table></div></section>
       </div>
       <p class="foot" data-i18n-html="foot"></p>
+      <p class="foot" id="privacy" data-i18n-html="privacy" hidden></p>
     </div>
   </main>
 </div>
@@ -256,6 +257,7 @@ const I18N = {
     "title": "Pol- og nullpunktutforsker",
     "sub": "Skriv inn en overføringsfunksjon, dra polene og nullpunktene i s-planet, og se hvordan sprangresponsen og Bodediagrammet endrer seg.",
     "aria.lang": "Språk", "aria.controls": "Kontroller", "guide": "Brukerveiledning", "guide.title": "Åpner brukerveiledningen i en ny fane",
+    "privacy": "Denne siden teller besøk med GoatCounter. Tellingen bruker ingen informasjonskapsler, lagrer ingenting på enheten din og lagrer ikke IP-adressen din; bare samlede tall blir lagret. Det du skriver inn og beregner, blir i nettleseren din.",
     "h.tf": "Overføringsfunksjon", "lbl.num": "Teller N(s)", "lbl.den": "Nevner D(s)", "lbl.numShort": "Teller", "lbl.denShort": "Nevner",
     "btn.apply": "Bruk", "btn.reset": "Tilbakestill",
     "hint.input": "Skriv <kbd>s^2 + 2s + 4</kbd>, <kbd>(s+1)(s+3)</kbd>, <kbd>10(s+0.5)^2</kbd> eller koeffisienter <kbd>1 2 4</kbd>. Bruk punktum som desimaltegn. Trykk Enter eller Bruk.",
@@ -330,6 +332,7 @@ const I18N = {
     "title": "Pole–Zero Explorer",
     "sub": "Enter a transfer function, then drag its poles and zeros in the s-plane and watch the step response and Bode diagram change.",
     "aria.lang": "Language", "aria.controls": "Controls", "guide": "User guide", "guide.title": "Opens the user guide in a new tab",
+    "privacy": "This page counts visits with GoatCounter. The counter uses no cookies, stores nothing on your device and does not store your IP address; only totals are kept. What you type and calculate stays in your browser.",
     "h.tf": "Transfer function", "lbl.num": "Numerator N(s)", "lbl.den": "Denominator D(s)", "lbl.numShort": "Numerator", "lbl.denShort": "Denominator",
     "btn.apply": "Apply", "btn.reset": "Reset",
     "hint.input": "Write <kbd>s^2 + 2s + 4</kbd>, <kbd>(s+1)(s+3)</kbd>, <kbd>10(s+0.5)^2</kbd> or coefficients <kbd>1 2 4</kbd>. Use a decimal point. Press Enter or Apply.",
@@ -1347,6 +1350,16 @@ function guideUrl() {
   return `https://github.com/${m[1]}/${repo}/blob/main/README.md#${anchor}`;
 }
 function updateGuide() { const a = $("guide"), u = guideUrl(); a.hidden = !u; if (u) { a.href = u; a.title = tr("guide.title"); } }
+
+/* ---- visit counter (GoatCounter, cookieless, aggregate counts only). It runs only on the GitHub Pages site,
+   so copies opened from a computer or published elsewhere are not counted. */
+const COUNTER_ENDPOINT = "https://imeric.goatcounter.com/count";
+if (COUNTER_ENDPOINT && /\.github\.io$/i.test(location.hostname)) {
+  const sc = document.createElement("script");
+  sc.async = true; sc.src = "https://gc.zgo.at/count.js"; sc.dataset.goatcounter = COUNTER_ENDPOINT;
+  document.head.appendChild(sc);
+  $("privacy").hidden = false;
+}
 
 /* ---- language switch: Norwegian by default; the choice is remembered in this browser, and #en / #nb in the link also selects it */
 function setLang(l, remember) {
